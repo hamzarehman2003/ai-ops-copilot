@@ -1,0 +1,45 @@
+TASKLANE REST API — RATE LIMITS AND ERROR HANDLING
+Version 1.6 | Effective 2026-01-01 | Owner: Platform Team
+
+OVERVIEW
+--------
+Every Tasklane API request is authenticated with a workspace API token. Rate limits apply per
+workspace, not per token: creating more tokens does not increase the limit.
+
+LIMITS BY PLAN
+--------------
+  Free         60 requests per minute
+  Pro          300 requests per minute
+  Enterprise   1,000 requests per minute (can be raised on request by the account team)
+
+Bursts of up to 2x the per-minute limit are allowed for at most 10 seconds.
+
+RESPONSE HEADERS
+----------------
+Every response includes:
+  X-RateLimit-Limit       the workspace's per-minute limit
+  X-RateLimit-Remaining   requests left in the current window
+  X-RateLimit-Reset       Unix timestamp when the window resets
+
+WHEN THE LIMIT IS EXCEEDED
+--------------------------
+The API returns HTTP 429 Too Many Requests with a Retry-After header (seconds). Clients must wait
+at least Retry-After seconds before retrying. Clients that keep sending requests while limited
+for more than 5 minutes are temporarily blocked for 15 minutes and receive error code
+API_TEMP_BLOCKED.
+
+OTHER ERROR CODES
+-----------------
+  401 INVALID_TOKEN        Token is missing, revoked, or expired. Tokens expire after 365 days.
+  403 PLAN_REQUIRED        The endpoint requires a higher plan (e.g. audit log API is Enterprise).
+  403 WORKSPACE_SUSPENDED  Write endpoints are blocked while the workspace is suspended.
+                           Read endpoints keep working.
+  404 NOT_FOUND            The resource does not exist or the token cannot see it.
+  409 CONFLICT             The resource was modified since it was read (use the ETag header).
+  422 VALIDATION_ERROR     The request body failed validation; see the "errors" array.
+
+BEST PRACTICES
+--------------
+  - Respect Retry-After and use exponential backoff with jitter.
+  - Use webhooks instead of polling for task changes.
+  - Use the bulk endpoints (/v2/tasks:batch) for more than 20 changes at a time.

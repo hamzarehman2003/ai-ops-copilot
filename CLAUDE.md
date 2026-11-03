@@ -10,8 +10,8 @@ run after human approval. Full spec: [docs/spec.md](docs/spec.md).
 
 - **Claude writes:** UI, CRUD endpoints, Pydantic schemas, migrations, Docker, mock CRM API,
   auth scaffolding, synthetic data, Playwright tests.
-- **I write, Claude teaches/reviews:** anything in `packages/retrieval/`, `services/ingestion/`
-  chunking/embedding logic, the grounded-answer prompt, and `evals/` metrics.
+- **I write, Claude teaches/reviews:** anything in `backend/app/retrieval/`, the parsing/chunking/
+  embedding logic in `backend/app/ingestion/`, the grounded-answer prompt, and `evals/` metrics.
   In these areas: explain trade-offs and alternatives first, leave `TODO(human)` for core logic,
   and review my code rather than rewriting it. Don't write the core logic unless I ask.
 - Every non-trivial RAG decision (chunk size, embedding model, k, threshold, hybrid weighting,
@@ -19,8 +19,8 @@ run after human approval. Full spec: [docs/spec.md](docs/spec.md).
 
 ## Stack
 
-- Frontend: Next.js + React + TypeScript + Tailwind (`apps/web/`)
-- Backend: Python, FastAPI, Pydantic, SQLAlchemy, Alembic (`services/api/`)
+- Frontend: Next.js + React + TypeScript + Tailwind (`frontend/`, not started)
+- Backend: Python 3.12, FastAPI, Pydantic, SQLAlchemy 2 (sync) + psycopg 3, Alembic (`backend/`)
 - DB: PostgreSQL + pgvector (one vector store only)
 - LLM: one provider behind a small adapter; structured outputs + tool calling
 - No LangGraph / agent framework for v1: approval is a state column on `ProposedAction`
@@ -30,24 +30,44 @@ run after human approval. Full spec: [docs/spec.md](docs/spec.md).
 
 ## Layout
 
+One Python project (`backend/`) with subpackages, instead of the spec's separate
+services/packages: simpler imports and one venv for a demo.
+
 ```
-apps/web/                 Next.js dashboard (chat, citations, sources, pending actions, evals)
-services/api/             FastAPI app, auth, tool registry, approval/action service
-services/ingestion/       parse -> normalize -> chunk -> embed -> index
-packages/retrieval/       query, metadata filtering, vector/hybrid search, ranking
-packages/tool_registry/   typed tool schemas, authz, timeouts, allow-list
+backend/
+  app/
+    main.py, config.py, db.py
+    routers/              FastAPI routes (health, sources, copilot, actions...)
+    ingestion/            parse -> normalize -> chunk -> embed -> index   (planned)
+    retrieval/            metadata filtering, vector/hybrid search, ranking (planned)
+    generation/           LLM adapter, grounded answers, citations          (planned)
+    tools/                typed tool schemas, authz, timeouts, allow-list   (planned)
+  scripts/                one-off scripts (e.g. build_demo_pdf.py)
+  tests/
+frontend/                 Next.js dashboard (planned)
 evals/                    cases.jsonl + run_eval.py (source of truth for metrics)
-data/demo_docs/           synthetic docs, policies, FAQs, tickets
+data/demo_docs/           synthetic docs; see data/README.md for what each file tests
+infra/db/init.sql         enables pgvector on a fresh DB volume
 docs/                     spec, architecture, rag-decisions
 ```
 
 ## Commands
 
-<!-- Fill in as each piece exists. Keep these accurate; Claude relies on them. -->
-- Start stack: `docker compose up -d` (TBD)
-- Backend tests: `pytest` (TBD)
-- Lint: `ruff check . && ruff format --check .` (TBD)
-- Migrations: `alembic upgrade head` (TBD)
+<!-- Keep these accurate; Claude relies on them. -->
+Host ports: Postgres **5433**, API **8001** (5432/8000 are used by other local projects).
+
+- Start stack: `docker compose up -d --build` (from repo root)
+- DB only: `docker compose up -d db`
+- Health check: `curl http://localhost:8001/health`
+- Dependencies: pinned in `backend/requirements.txt` (runtime) and `requirements-dev.txt`
+  (pytest, ruff, ...). Add new packages there with an exact version; `pyproject.toml` is tool
+  config only.
+- Local venv: `backend/.venv` (`cd backend && .venv/Scripts/python -m pip install -r requirements-dev.txt`)
+- Backend tests (DB must be up): `cd backend && .venv/Scripts/python -m pytest`
+  or inside Docker: `docker compose exec api pytest`
+- Lint: `cd backend && .venv/Scripts/ruff check . && .venv/Scripts/ruff format --check .`
+- Regenerate demo PDF: `cd backend && .venv/Scripts/python scripts/build_demo_pdf.py`
+- Migrations: `alembic upgrade head` (TBD, Step 1)
 - Evals: `python evals/run_eval.py` (TBD)
 
 ## Non-negotiable rules

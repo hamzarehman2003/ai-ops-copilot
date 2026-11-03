@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Integrations FAQ | Tasklane Help Center</title>
+</head>
+<body>
+  <header>
+    <nav><a href="/">Help Center</a> › <a href="/integrations">Integrations</a> › FAQ</nav>
+  </header>
+
+  <main>
+    <h1>Integrations FAQ</h1>
+    <p><em>Last reviewed: 2025-11-20</em></p>
+
+    <section>
+      <h2>Which integrations are available on each plan?</h2>
+      <p>
+        Slack and Google Drive integrations are available on all plans, including Free.
+        GitHub and Jira integrations require Pro or Enterprise. Custom webhooks are available on
+        Pro (up to 5 per workspace) and Enterprise (unlimited).
+      </p>
+    </section>
+
+    <section>
+      <h2>Who can install an integration?</h2>
+      <p>
+        Workspace Owners and Admins can install integrations. Members can connect their personal
+        Slack account for notifications once the workspace integration is installed. Guests
+        cannot install or use integrations.
+      </p>
+    </section>
+
+    <section>
+      <h2>Slack notifications stopped arriving. What should I check?</h2>
+      <ol>
+        <li>Confirm the workspace is not <code>suspended</code>; integrations stop syncing in
+          suspended workspaces.</li>
+        <li>Check that the Slack app has not been removed from the Slack channel.</li>
+        <li>Reconnect the integration under <strong>Settings → Integrations → Slack</strong>.
+          Slack tokens expire if the installing admin's Slack account is deactivated.</li>
+      </ol>
+    </section>
+
+    <section>
+      <h2>GitHub pull requests are not linking to tasks.</h2>
+      <p>
+        Pull requests link to tasks when the PR title or branch name contains the task key, for
+        example <code>TL-1423</code>. Links are created within 2 minutes. If the workspace
+        downgraded to Free, the GitHub integration is disabled and existing links stay visible
+        but stop updating.
+      </p>
+    </section>
+
+    <section>
+      <h2>Webhook deliveries are failing.</h2>
+      <p>
+        Tasklane retries failed webhook deliveries up to 5 times with exponential backoff over
+        about 30 minutes. After 5 failures, the delivery is marked <strong>Failed</strong>. If
+        more than 100 deliveries to the same endpoint fail within 24 hours, the webhook is
+        disabled automatically and the workspace Owner receives an email. Your endpoint must
+        respond with a 2xx status within 10 seconds.
+      </p>
+    </section>
+  </main>
+
+  <footer>© 2026 Tasklane, Inc. (fictional)</footer>
+</body>
+</html>

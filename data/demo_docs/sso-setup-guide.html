@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Set up SAML single sign-on | Tasklane Help Center</title>
+  <style>
+    body { font-family: sans-serif; max-width: 760px; margin: auto; }
+    nav, footer { color: #666; font-size: 0.9em; }
+  </style>
+  <script>window.analytics = window.analytics || []; analytics.push(["page"]);</script>
+</head>
+<body>
+  <nav>
+    <a href="/">Help Center</a> | <a href="/admin">Admin guides</a> | <a href="/billing">Billing</a>
+    | <a href="/status">System status</a> | <a href="/login">Sign in</a>
+  </nav>
+
+  <main>
+    <article>
+      <h1>Set up SAML single sign-on</h1>
+      <p class="meta">Applies to: Enterprise plan · Last reviewed: 2026-02-10 · Version 3.0</p>
+
+      <p>
+        SAML single sign-on (SSO) lets members of an Enterprise workspace sign in through your
+        company identity provider (IdP). SSO is not available on Free or Pro plans. Only workspace
+        Owners can configure SSO.
+      </p>
+
+      <h2>Before you begin</h2>
+      <ul>
+        <li>Your workspace must be on the Enterprise plan or an active Enterprise trial.</li>
+        <li>You must be a workspace Owner.</li>
+        <li>You must verify at least one email domain under <strong>Settings → Domains</strong>.</li>
+        <li>You need admin access to your identity provider (Okta, Entra ID, OneLogin, or any
+          SAML 2.0 provider).</li>
+      </ul>
+
+      <h2>Step 1: Create the Tasklane app in your IdP</h2>
+      <ol>
+        <li>In your IdP, create a new SAML 2.0 application named "Tasklane".</li>
+        <li>Set the <strong>ACS URL</strong> to
+          <code>https://auth.tasklane.example/saml/acs/&lt;workspace-id&gt;</code>.</li>
+        <li>Set the <strong>Entity ID</strong> to <code>https://auth.tasklane.example/saml</code>.</li>
+        <li>Map the <code>email</code> attribute to the user's primary email address.</li>
+      </ol>
+
+      <h2>Step 2: Connect the IdP in Tasklane</h2>
+      <ol>
+        <li>Go to <strong>Settings → Security → Single sign-on</strong>.</li>
+        <li>Upload the IdP metadata XML, or paste the SSO URL and X.509 certificate.</li>
+        <li>Click <strong>Test connection</strong>. A successful test signs you in through the IdP
+          in a new tab.</li>
+      </ol>
+
+      <h2>Step 3: Enforce SSO</h2>
+      <p>
+        After a successful test, turn on <strong>Require SSO for all members</strong>. Members
+        with emails on a verified domain will be redirected to the IdP at their next sign-in.
+        Owners always keep a password-based break-glass login in case the IdP is unavailable.
+      </p>
+
+      <h2>Troubleshooting</h2>
+      <table>
+        <thead>
+          <tr><th>Error code</th><th>Meaning</th><th>Fix</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>SSO-401</code></td>
+            <td>The SAML assertion signature is invalid.</td>
+            <td>Re-upload the current IdP certificate. Certificates rotated in the IdP are not
+              picked up automatically.</td>
+          </tr>
+          <tr>
+            <td><code>SSO-403</code></td>
+            <td>The user's email domain is not verified for this workspace.</td>
+            <td>Verify the domain under Settings → Domains, or add the user as a guest.</td>
+          </tr>
+          <tr>
+            <td><code>SSO-404</code></td>
+            <td>SSO is not enabled for this workspace.</td>
+            <td>Check that the workspace is on Enterprise. SSO is turned off automatically when
+              an Enterprise trial ends or the workspace downgrades.</td>
+          </tr>
+          <tr>
+            <td><code>SSO-409</code></td>
+            <td>The email is already linked to another Tasklane workspace that enforces SSO.</td>
+            <td>The user must be removed from the other workspace, or use a different email.</td>
+          </tr>
+          <tr>
+            <td><code>SSO-429</code></td>
+            <td>Too many sign-in attempts from the same user.</td>
+            <td>Wait 15 minutes and try again.</td>
+          </tr>
+        </tbody>
+      </table>
+    </article>
+  </main>
+
+  <footer>
+    © 2026 Tasklane, Inc. (fictional) · <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a>
+    · Was this article helpful? <button>Yes</button> <button>No</button>
+  </footer>
+</body>
+</html>
