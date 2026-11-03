@@ -67,7 +67,13 @@ Host ports: Postgres **5433**, API **8001** (5432/8000 are used by other local p
   or inside Docker: `docker compose exec api pytest`
 - Lint: `cd backend && .venv/Scripts/ruff check . && .venv/Scripts/ruff format --check .`
 - Regenerate demo PDF: `cd backend && .venv/Scripts/python scripts/build_demo_pdf.py`
-- Migrations: `alembic upgrade head` (TBD, Step 1)
+- Migrations run automatically on `api` container start. Manually (from `backend/`):
+  `.venv/Scripts/alembic upgrade head`; new migration after editing `app/models.py`:
+  `.venv/Scripts/alembic revision --autogenerate --rev-id 000N -m "what changed"`, then **review
+  the generated file**; `.venv/Scripts/alembic check` confirms models and DB match.
+- Seed demo workspaces (idempotent): `docker compose exec api python -m scripts.seed`
+- Tests use a separate `copilot_test` database (created + migrated automatically by
+  `tests/conftest.py`); each test is rolled back.
 - Evals: `python evals/run_eval.py` (TBD)
 
 ## Non-negotiable rules
