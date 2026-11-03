@@ -19,6 +19,9 @@ node_modules/
 out/
 *.tsbuildinfo
 
+# Uploaded source files (local runs; Docker uses the `uploads` volume)
+backend/uploads/
+
 # Eval outputs (keep committed summaries in evals/reports/ if desired)
 evals/runs/
 

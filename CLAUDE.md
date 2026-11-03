@@ -72,9 +72,27 @@ Host ports: Postgres **5433**, API **8001** (5432/8000 are used by other local p
   `.venv/Scripts/alembic revision --autogenerate --rev-id 000N -m "what changed"`, then **review
   the generated file**; `.venv/Scripts/alembic check` confirms models and DB match.
 - Seed demo workspaces (idempotent): `docker compose exec api python -m scripts.seed`
+- Upload all demo docs via the API (idempotent, duplicates detected):
+  `docker compose exec api python -m scripts.upload_demo_docs`
+- API docs / manual testing: http://localhost:8001/docs
 - Tests use a separate `copilot_test` database (created + migrated automatically by
   `tests/conftest.py`); each test is rolled back.
 - Evals: `python evals/run_eval.py` (TBD)
+
+## API (so far)
+
+All `/api/*` routes need header `X-Workspace: <slug>` (e.g. `tasklane-support`).
+**Temporary** stand-in for auth, resolved only in `get_current_workspace` (`app/deps.py`);
+every query must still scope by the workspace it returns.
+
+- `POST /api/sources`: multipart `file` (+ optional `title`). 201 new version, 200 duplicate
+  (same SHA-256), 400 empty, 413 too large, 415 wrong/unsupported type.
+- `GET /api/sources`, `GET /api/sources/{id}`: other workspaces' documents → 404.
+
+Upload logic lives in `app/ingestion/upload.py` (no FastAPI). Files are stored under
+`UPLOAD_DIR` at `{workspace}/{document}/v{n}-{hash12}{ext}`; DB stores the relative path.
+A new version stays `pending` and `is_current=false` until processing succeeds (Step 6
+swaps it in), so retrieval never reads a half-processed version.
 
 ## Non-negotiable rules
 

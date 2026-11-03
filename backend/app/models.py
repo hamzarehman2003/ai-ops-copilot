@@ -108,6 +108,10 @@ class SourceDocument(Base):
         order_by="DocumentVersion.version_number",
     )
 
+    @property
+    def latest_version(self) -> "DocumentVersion | None":
+        return self.versions[-1] if self.versions else None
+
 
 class DocumentVersion(Base):
     """One uploaded content of a document. Re-uploading changed bytes creates a new version."""

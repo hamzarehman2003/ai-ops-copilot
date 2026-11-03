@@ -2,6 +2,7 @@
 # Dev/test tools are in requirements-dev.txt.
 
 fastapi==0.162.0
+python-multipart==0.0.33
 uvicorn[standard]==0.54.0
 pydantic-settings==2.16.2
 SQLAlchemy==2.1.6
