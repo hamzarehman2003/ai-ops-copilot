@@ -16,6 +16,9 @@ run after human approval. Full spec: [docs/spec.md](docs/spec.md).
   and review my code rather than rewriting it. Don't write the core logic unless I ask.
 - Every non-trivial RAG decision (chunk size, embedding model, k, threshold, hybrid weighting,
   reranker) gets an entry in [docs/rag-decisions.md](docs/rag-decisions.md) with eval evidence.
+- **Keep [docs/interview-prep.md](docs/interview-prep.md) growing:** whenever an explanation
+  or a new step raises an interview-worthy question, add it (question → short answer →
+  "In this repo" pointer) under the matching topic section, or a new section for a new topic.
 
 ## Stack
 
@@ -75,6 +78,10 @@ Host ports: Postgres **5433**, API **8001** (5432/8000 are used by other local p
 - Upload all demo docs via the API (idempotent, duplicates detected):
   `docker compose exec api python -m scripts.upload_demo_docs`
 - API docs / manual testing: http://localhost:8001/docs
+- See what the parser extracts from a file (from `backend/`):
+  `.venv/Scripts/python -m scripts.parse_file ../data/demo_docs/billing-and-refunds-policy.pdf [--full]`
+  (In Git Bash, prefix Docker commands that take `/data/...` paths with `MSYS_NO_PATHCONV=1`.)
+- See the chunks for a file: `.venv/Scripts/python -m scripts.chunk_file <file> [--max-tokens 60 --overlap 15]`
 - Tests use a separate `copilot_test` database (created + migrated automatically by
   `tests/conftest.py`); each test is rolled back.
 - Evals: `python evals/run_eval.py` (TBD)
@@ -93,6 +100,31 @@ Upload logic lives in `app/ingestion/upload.py` (no FastAPI). Files are stored u
 `UPLOAD_DIR` at `{workspace}/{document}/v{n}-{hash12}{ext}`; DB stores the relative path.
 A new version stays `pending` and `is_current=false` until processing succeeds (Step 6
 swaps it in), so retrieval never reads a half-processed version.
+
+## Parsing
+
+`app/ingestion/parsing/`: one parser per format, all returning `ParsedDocument`
+(`title`, `text`, `sections` with `heading_path`, `char_start/char_end`, `page_start/page_end`;
+invariant: `doc.text[s.char_start:s.char_end] == s.text`). `parse(source_type, bytes)` dispatches.
+All four types are done:
+- **PDF** (`pdf.py`): headings from font size/bold, bordered tables, header/footer removal; no OCR.
+- **HTML** (`html.py`, BeautifulSoup): reads `<main>`/`<article>`/`<body>`; drops script/style/
+  nav/aside/forms, page-level header/footer, and hidden elements; `<h1>`–`<h6>` → sections.
+- **Markdown** (`markdown.py`): markdown-it-py renders to HTML, then the HTML parser runs.
+- **Text** (`text.py`): underlined (`===`/`---`) and ALL-CAPS lines are headings; line breaks kept.
+
+Shared helpers in `parsing/base.py`: `decode_text` (UTF-8, `\n` endings), `SectionBuilder`
+(heading-level stack), `render_table` (one line per row repeating column names; recorded in
+`Section.table_spans`).
+
+## Chunking
+
+`app/ingestion/chunking.py`: `chunk_document(doc, max_tokens=300, overlap_tokens=50)` →
+`ChunkDraft`s. Chunks never cross sections; long sections split at sentence boundaries
+(whole rows inside tables, words for giant sentences); overlap is whole pieces. Tokens counted with tiktoken
+`cl100k_base` (`app/ingestion/tokens.py`). Format-agnostic: works on any `ParsedDocument`
+(`test_every_demo_doc_chunks_cleanly` covers all demo files). Not yet wired to uploads / saved
+to the DB.
 
 ## Non-negotiable rules
 
