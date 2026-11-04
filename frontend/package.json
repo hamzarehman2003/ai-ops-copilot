@@ -1,0 +1,30 @@
+{
+  "name": "ai-ops-copilot-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -p 3002",
+    "build": "next build",
+    "start": "next start -p 3002",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test:e2e": "playwright test"
+  },
+  "dependencies": {
+    "next": "15.5.29",
+    "react": "19.2.9",
+    "react-dom": "19.2.9"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "3.3.7",
+    "@playwright/test": "1.64.1",
+    "@tailwindcss/postcss": "4.3.4",
+    "@types/node": "22.20.5",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.7",
+    "eslint": "9.39.5",
+    "eslint-config-next": "15.5.29",
+    "tailwindcss": "4.3.4",
+    "typescript": "5.9.3"
+  }
+}

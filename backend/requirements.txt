@@ -12,3 +12,6 @@ pymupdf==2.1
 tiktoken==0.14.0
 beautifulsoup4==4.15.0
 markdown-it-py==4.2.0
+pgvector==0.5.1
+fastembed==0.9.1
+anthropic==2.4.0

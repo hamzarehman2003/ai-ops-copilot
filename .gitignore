@@ -34,3 +34,12 @@ Thumbs.db
 
 # Claude Code local settings
 .claude/settings.local.json
+
+# Downloaded embedding / reranker models
+backend/.cache/
+
+# Frontend
+frontend/node_modules/
+frontend/.next/
+frontend/test-results/
+frontend/playwright-report/

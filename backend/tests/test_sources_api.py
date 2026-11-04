@@ -9,8 +9,9 @@ from sqlalchemy.orm import Session
 
 from app.config import Settings, get_settings
 from app.db import get_session
+from app.deps import get_session_factory
 from app.main import app
-from app.models import DocumentVersion, Workspace
+from app.models import DocumentVersion, IngestionStatus, User, UserRole, Workspace
 
 MAX_BYTES = 1024
 MARKDOWN = b"# Refunds\n\nAnnual plans: 14 days.\n"
@@ -22,10 +23,12 @@ def upload_dir(tmp_path: Path) -> Path:
 
 
 @pytest.fixture
-def client(session: Session, upload_dir: Path) -> Iterator[TestClient]:
+def client(session: Session, session_factory, upload_dir: Path) -> Iterator[TestClient]:
     settings = Settings(upload_dir=upload_dir, max_upload_bytes=MAX_BYTES)
     app.dependency_overrides[get_session] = lambda: session
     app.dependency_overrides[get_settings] = lambda: settings
+    # Background ingestion runs in the same rolled-back test transaction.
+    app.dependency_overrides[get_session_factory] = lambda: session_factory
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()
@@ -33,14 +36,27 @@ def client(session: Session, upload_dir: Path) -> Iterator[TestClient]:
 
 @pytest.fixture(autouse=True)
 def workspaces(session: Session) -> None:
-    session.add_all([Workspace(name="A", slug="ws-a"), Workspace(name="B", slug="ws-b")])
+    a, b = Workspace(name="A", slug="ws-a"), Workspace(name="B", slug="ws-b")
+    session.add_all([a, b])
     session.flush()
+    session.add_all(
+        [
+            User(workspace_id=a.id, email="admin@ws-a.test", name="A", role=UserRole.ADMIN),
+            User(workspace_id=a.id, email="viewer@ws-a.test", name="V", role=UserRole.VIEWER),
+            User(workspace_id=b.id, email="admin@ws-b.test", name="B", role=UserRole.ADMIN),
+        ]
+    )
+    session.flush()
+
+
+def as_admin(workspace: str) -> dict:
+    return {"X-User": f"admin@{workspace}.test"}
 
 
 def upload(client: TestClient, filename: str, data: bytes, workspace: str = "ws-a", **form):
     return client.post(
         "/api/sources",
-        headers={"X-Workspace": workspace},
+        headers=as_admin(workspace),
         files={"file": (filename, data)},
         data=form,
     )
@@ -117,10 +133,38 @@ def test_real_pdf_is_accepted(client: TestClient):
     assert response.json()["source_type"] == "pdf"
 
 
-def test_unknown_workspace_is_404(client: TestClient):
+def test_unknown_user_is_401(client: TestClient):
     response = upload(client, "refund-policy.md", MARKDOWN, workspace="nope")
 
-    assert response.status_code == 404
+    assert response.status_code == 401
+
+
+def test_only_admins_can_upload(client: TestClient):
+    response = client.post(
+        "/api/sources",
+        headers={"X-User": "viewer@ws-a.test"},
+        files={"file": ("refund-policy.md", MARKDOWN)},
+    )
+    assert response.status_code == 403
+
+
+def test_upload_is_indexed_in_background_and_chunks_are_listed(
+    client: TestClient, session: Session
+):
+    created = upload(client, "refund-policy.md", MARKDOWN)
+    document_id = created.json()["document_id"]
+
+    # TestClient runs background tasks before returning, so processing is done here.
+    detail = client.get(f"/api/sources/{document_id}", headers=as_admin("ws-a")).json()
+    assert detail["latest_version"]["status"] == IngestionStatus.READY
+    assert detail["latest_version"]["is_current"] is True
+
+    chunks = client.get(f"/api/sources/{document_id}/chunks", headers=as_admin("ws-a")).json()
+    assert [c["content"] for c in chunks] == ["Refunds\n\nAnnual plans: 14 days."]
+    assert chunks[0]["embedding_model"] == "BAAI/bge-small-en-v1.5"
+    # Another tenant can't see the chunks either.
+    other = client.get(f"/api/sources/{document_id}/chunks", headers=as_admin("ws-b"))
+    assert other.status_code == 404
 
 
 def test_path_traversal_filename_is_neutralized(
@@ -146,16 +190,16 @@ def test_list_and_detail_are_scoped_to_workspace(client: TestClient):
     created = upload(client, "refund-policy.md", MARKDOWN, workspace="ws-a")
     document_id = created.json()["document_id"]
 
-    own_list = client.get("/api/sources", headers={"X-Workspace": "ws-a"})
+    own_list = client.get("/api/sources", headers=as_admin("ws-a"))
     assert [d["id"] for d in own_list.json()] == [document_id]
     assert own_list.json()[0]["latest_version"]["version_number"] == 1
 
-    own_detail = client.get(f"/api/sources/{document_id}", headers={"X-Workspace": "ws-a"})
+    own_detail = client.get(f"/api/sources/{document_id}", headers=as_admin("ws-a"))
     assert own_detail.status_code == 200
     assert len(own_detail.json()["versions"]) == 1
 
     # Another tenant sees nothing, and gets 404 (not 403) for the document's ID.
-    other_list = client.get("/api/sources", headers={"X-Workspace": "ws-b"})
+    other_list = client.get("/api/sources", headers=as_admin("ws-b"))
     assert other_list.json() == []
-    other_detail = client.get(f"/api/sources/{document_id}", headers={"X-Workspace": "ws-b"})
+    other_detail = client.get(f"/api/sources/{document_id}", headers=as_admin("ws-b"))
     assert other_detail.status_code == 404

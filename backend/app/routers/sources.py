@@ -1,14 +1,31 @@
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, File, Form, HTTPException, Response, UploadFile, status
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    File,
+    Form,
+    HTTPException,
+    Response,
+    UploadFile,
+    status,
+)
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
-from app.deps import SessionDep, SettingsDep, WorkspaceDep
+from app.deps import AdminUser, SessionDep, SessionFactoryDep, SettingsDep, WorkspaceDep
+from app.ingestion.pipeline import process_in_background
 from app.ingestion.upload import UploadError, register_upload
-from app.models import SourceDocument
-from app.schemas import SourceDetail, SourceSummary, SourceUploadResponse, VersionOut
+from app.models import AuditEvent, Chunk, DocumentVersion, IngestionStatus, SourceDocument
+from app.schemas import (
+    ChunkOut,
+    SourceDetail,
+    SourceSummary,
+    SourceUpdate,
+    SourceUploadResponse,
+    VersionOut,
+)
 
 router = APIRouter(prefix="/api/sources", tags=["sources"])
 
@@ -36,13 +53,20 @@ def _read_limited(file: UploadFile, limit: int) -> bytes:
 )
 def upload_source(
     response: Response,
+    admin: AdminUser,
     workspace: WorkspaceDep,
     session: SessionDep,
+    session_factory: SessionFactoryDep,
     settings: SettingsDep,
+    background: BackgroundTasks,
     file: Annotated[UploadFile, File()],
     title: Annotated[str | None, Form(max_length=500)] = None,
 ) -> SourceUploadResponse:
-    """Upload a PDF, Markdown, HTML, or text file as a new version of a source document."""
+    """Upload a PDF, Markdown, HTML, or text file as a new version of a source document.
+
+    A new version is processed (parse, chunk, embed, index) in the background after the
+    response; poll GET /api/sources/{id} until its status is `ready` (or `failed`).
+    """
     data = _read_limited(file, settings.max_upload_bytes)
     try:
         result = register_upload(
@@ -53,6 +77,19 @@ def upload_source(
 
     if result.duplicate:
         response.status_code = status.HTTP_200_OK
+    else:
+        session.add(
+            AuditEvent(
+                workspace_id=workspace.id,
+                actor_user_id=admin.id,
+                event_type="source.uploaded",
+                entity_type="document_version",
+                entity_id=str(result.version.id),
+                data={"filename": result.version.document.filename},
+            )
+        )
+        session.commit()
+        background.add_task(process_in_background, session_factory, result.version.id, settings)
 
     document = result.version.document
     return SourceUploadResponse(
@@ -92,4 +129,77 @@ def get_source(
     )
     if document is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Source not found")
+    return SourceDetail.model_validate(document)
+
+
+def _document_or_404(session, workspace, document_id: uuid.UUID) -> SourceDocument:
+    document = session.scalar(
+        select(SourceDocument)
+        .where(SourceDocument.id == document_id, SourceDocument.workspace_id == workspace.id)
+        .options(selectinload(SourceDocument.versions))
+    )
+    if document is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Source not found")
+    return document
+
+
+@router.post("/{document_id}/reindex", status_code=status.HTTP_202_ACCEPTED)
+def reindex_source(
+    document_id: uuid.UUID,
+    admin: AdminUser,
+    workspace: WorkspaceDep,
+    session: SessionDep,
+    session_factory: SessionFactoryDep,
+    settings: SettingsDep,
+    background: BackgroundTasks,
+) -> VersionOut:
+    """Re-process the latest version (e.g. after changing the chunker or embedding model)."""
+    document = _document_or_404(session, workspace, document_id)
+    version = document.latest_version
+    if version.status == IngestionStatus.PROCESSING:
+        raise HTTPException(status.HTTP_409_CONFLICT, "Version is already being processed")
+    version.status = IngestionStatus.PENDING
+    session.commit()
+    background.add_task(process_in_background, session_factory, version.id, settings)
+    return VersionOut.model_validate(version)
+
+
+@router.get("/{document_id}/chunks")
+def list_chunks(
+    document_id: uuid.UUID, workspace: WorkspaceDep, session: SessionDep
+) -> list[ChunkOut]:
+    """Chunks of the current version (or the latest one if none is current yet)."""
+    document = _document_or_404(session, workspace, document_id)
+    version = next((v for v in document.versions if v.is_current), document.latest_version)
+    chunks = session.scalars(
+        select(Chunk)
+        .join(DocumentVersion, DocumentVersion.id == Chunk.document_version_id)
+        .where(Chunk.document_version_id == version.id, Chunk.workspace_id == workspace.id)
+        .order_by(Chunk.chunk_index)
+    )
+    return [ChunkOut.from_chunk(c, version.version_number) for c in chunks]
+
+
+@router.patch("/{document_id}")
+def update_source(
+    document_id: uuid.UUID,
+    body: SourceUpdate,
+    admin: AdminUser,
+    workspace: WorkspaceDep,
+    session: SessionDep,
+) -> SourceDetail:
+    """Mark a document deprecated (excluded from retrieval, kept for history) or restore it."""
+    document = _document_or_404(session, workspace, document_id)
+    document.deprecated = body.deprecated
+    session.add(
+        AuditEvent(
+            workspace_id=workspace.id,
+            actor_user_id=admin.id,
+            event_type="source.deprecated" if body.deprecated else "source.restored",
+            entity_type="source_document",
+            entity_id=str(document.id),
+            data={"filename": document.filename},
+        )
+    )
+    session.commit()
     return SourceDetail.model_validate(document)

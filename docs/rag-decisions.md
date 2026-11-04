@@ -115,6 +115,77 @@ One entry per decision. This is interview prep: be able to defend every line.
   "e.g. " / "Inc. " can be mistaken for sentence ends; chunks inherit the whole section's
   page range.
 
+### Embeddings: BAAI/bge-small-en-v1.5 via fastembed, contextual chunk headers — 2026-11-04
+- **Choice:** local bge-small-en-v1.5 (384 dims, 512-token input, ONNX/CPU via fastembed, no API
+  key), behind an `Embedder` adapter. Embedded text = heading path + chunk; stored `content`
+  stays clean. BGE query instruction added to queries only. Model name stored on every chunk.
+- **Alternatives considered:** OpenAI `text-embedding-3-small` / Voyage (API: key, cost, data
+  leaves the machine); sentence-transformers + PyTorch (+1 GB image); all-MiniLM-L6-v2 (256-token
+  limit truncates our 300-token chunks).
+- **Why:** runs anywhere with `docker compose up`; the adapter allows comparing an API model later.
+- **Eval evidence:** dense-only retrieval, run `20261104T133018Z`: hit@1 0.74, hit@5 0.99,
+  MRR 0.85 (95-case set, 73 retrieval-scored). `test_no_chunk_is_truncated_by_the_embedding_model`
+  confirms every demo chunk + header fits in 512 BGE tokens.
+- **Known trade-offs / when I'd revisit:** weakest single retriever here; compare an API model
+  with the same eval; changing models = new column + re-embed.
+
+### Hybrid retrieval (pgvector + Postgres full-text) with RRF — 2026-11-04
+- **Choice:** dense (cosine, HNSW, iterative scans) and lexical (`to_tsquery` with OR-ed words,
+  `ts_rank_cd`, GIN index on a generated tsvector of headings + content), 20 candidates each,
+  fused with Reciprocal Rank Fusion (k = 60). Tenant, current-version, and deprecated filters in
+  both SQL queries.
+- **Alternatives considered:** dense only; BM25 via an extra engine (Elasticsearch/OpenSearch:
+  a second store to sync); weighted score fusion (needs score normalization).
+- **Eval evidence** (run `20261104T133018Z`, before deprecation; hit@1 / hit@3 / MRR):
+  dense 0.74 / 0.96 / 0.85, lexical 0.86 / 0.97 / 0.91, hybrid 0.81 / 0.96 / 0.89.
+  Lexical alone is strong because many questions contain exact terms; hybrid is better than
+  dense alone, and fusion matters most once the reranker sits on top (next entry).
+- **Known trade-offs / when I'd revisit:** Postgres `ts_rank_cd` is not true BM25; English
+  stemming only; OR queries can be noisy on long questions.
+
+### Cross-encoder reranker: ms-marco-MiniLM-L-6-v2 on the top 20 — 2026-11-04
+- **Choice:** rerank the best 20 fused candidates with `Xenova/ms-marco-MiniLM-L-6-v2`
+  (~80 MB, ONNX/CPU), keep top k = 5.
+- **Alternatives considered:** `jina-reranker-v1-turbo-en` (probe: answerable 0.6–1.6 vs
+  unanswerable −1.2 to −0.3, overlapping, so no usable threshold); `bge-reranker-base`/`v2-m3`
+  (0.5–2 GB); no reranker.
+- **Eval evidence:** with the legacy FAQ deprecated (run `20261104T133918Z`): hybrid_rerank
+  hit@1 0.93, hit@3 0.99, MRR 0.96 vs hybrid 0.89 / 0.96 / 0.93 and dense 0.89 / 0.97 / 0.93.
+  `rerank_top_n` 10 vs 20 (runs `20261104T134359Z` / `20261104T135019Z`): hit@3 0.94 vs 0.97,
+  MRR 0.94 vs 0.96, retrieval p50 1324 vs 2223 ms (laptop CPU, other load running: noisy).
+- **Known trade-offs / when I'd revisit:** ~1 s+ of CPU per query; weak on vocabulary gaps
+  ("money back" vs "refund", case p01); revisit with a GPU, a larger reranker, or query rewriting.
+
+### Abstain threshold: min rerank score −5.0 — 2026-11-04
+- **Choice:** chunks with a cross-encoder score below −5 are not given to the answer step; if
+  none remain, the copilot abstains (offline) or the LLM sees no documents.
+- **Evidence:** probe of 12 answerable + 8 unanswerable questions: answerable top scores 5.6 to
+  9.9 except one paraphrase at −4.3; unanswerable −11.3 to +0.6. Eval: correct_abstention 0.64
+  (offline mode; 9/14), answered_when_answerable 0.97.
+- **Known trade-offs / when I'd revisit:** a threshold can't separate on-topic-but-unanswered
+  questions ("smartwatch app?", "uptime SLA?") from answerable ones; that is the LLM's job
+  (rerun `--llm`). Recalibrate whenever the reranker changes.
+
+### Deprecated sources filtered inside the query — 2026-11-04
+- **Choice:** `source_documents.deprecated`; admins toggle it (`PATCH /api/sources/{id}`,
+  audited); retrieval excludes deprecated documents in SQL, like the tenant filter.
+- **Eval evidence:** deprecating `legacy-pricing-faq-2024.md` (runs `20261104T133018Z` →
+  `20261104T133918Z`): hybrid_rerank hit@1 0.84 → 0.93, MRR 0.91 → 0.96, outdated-ranked-first
+  0.50 → 0.00; no_forbidden_claims 0.70 → 1.00.
+- **Known trade-offs / when I'd revisit:** needs a human to curate; effective-date metadata +
+  freshness boosting would handle partial overlaps automatically.
+
+### Answering: Claude (claude-opus-5-5) with structured output, read-only tools, checks in code
+- **Choice:** one provider behind `LLM.turn()`; a manual tool loop (≤ 4 rounds) with two
+  read-only `strict` tools; final answer as JSON (`answer`, `citations`, `abstained`,
+  `proposed_action`) via `output_config.format`; server-side `fallbacks: "default"` for safety
+  refusals. Code validates citations and enforces "cite or abstain"; proposals are validated
+  and stored as `pending`. Without an API key: offline mode (cited evidence, no generation).
+- **Eval evidence:** offline-mode runs only so far (`answers.mode = offline` in every report);
+  LLM-mode numbers come from `python evals/run_eval.py --llm` when a key is available.
+- **Known trade-offs / when I'd revisit:** effort `medium` not yet tuned; no prompt caching
+  (prompt below the cacheable minimum).
+
 ### Embedding column deferred to Step 5 — 2026-11-03
 - **Choice:** `chunks` has no `embedding vector(N)` column yet.
 - **Why:** `N` is fixed by the embedding model (e.g. 384 / 768 / 1536), which is not chosen

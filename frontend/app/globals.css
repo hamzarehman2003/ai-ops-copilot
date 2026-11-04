@@ -1,0 +1,110 @@
+@import "tailwindcss";
+
+/*
+ * Design tokens. Warm "paper" neutrals, one ink colour for text and primary actions, and a
+ * single vermilion accent used sparingly (active state, focus, the one highlighted series).
+ * Status colours are reserved for state and always ship with a label.
+ */
+@theme inline {
+  --font-sans: var(--font-geist), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: var(--font-instrument), "Iowan Old Style", Georgia, serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+@theme {
+  --color-paper: #f5f4f0;
+  --color-paper-2: #efede7;
+  --color-surface: #ffffff;
+  --color-line: #e5e2da;
+  --color-line-strong: #d3cfc4;
+
+  --color-ink: #1a1917;
+  --color-ink-2: #45433e;
+  --color-ink-3: #75726a;
+  --color-ink-4: #a29e94;
+
+  --color-accent: #cf4a1f;
+  --color-accent-ink: #9a3412;
+  --color-accent-soft: #fbece5;
+
+  --color-ok: #2d7048;
+  --color-ok-soft: #e8f2eb;
+  --color-warn: #93600c;
+  --color-warn-soft: #f9f0dc;
+  --color-bad: #b02a20;
+  --color-bad-soft: #f9e8e5;
+  --color-info: #2b5a8a;
+  --color-info-soft: #e7eef6;
+  --color-plum: #6b3f7a;
+  --color-plum-soft: #f1e9f3;
+
+  --shadow-card: 0 1px 0 rgb(26 25 23 / 0.03), 0 1px 2px rgb(26 25 23 / 0.04);
+  --shadow-pop: 0 1px 2px rgb(26 25 23 / 0.06), 0 12px 32px -8px rgb(26 25 23 / 0.18);
+
+  --animate-rise: rise 0.35s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  --animate-cite-flash: cite-flash 1.6s ease-out;
+
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  /* A citation card briefly flashes when its [S#] chip is clicked. */
+  @keyframes cite-flash {
+    0% {
+      box-shadow: 0 0 0 3px var(--color-accent);
+    }
+    100% {
+      box-shadow: 0 0 0 3px transparent;
+    }
+  }
+}
+
+:root {
+  color-scheme: light;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-feature-settings: "ss01", "cv11";
+}
+
+::selection {
+  background: var(--color-accent-soft);
+  color: var(--color-accent-ink);
+}
+
+/* Quiet scrollbars inside panels. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-line-strong) transparent;
+}
+
+summary::-webkit-details-marker {
+  display: none;
+}
+
+.cite-flash {
+  animation: var(--animate-cite-flash);
+}
+
+/* Small uppercase label used above sections and in tables. */
+@utility eyebrow {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-ink-3);
+}

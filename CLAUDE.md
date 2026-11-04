@@ -22,7 +22,7 @@ run after human approval. Full spec: [docs/spec.md](docs/spec.md).
 
 ## Stack
 
-- Frontend: Next.js + React + TypeScript + Tailwind (`frontend/`, not started)
+- Frontend: Next.js + React + TypeScript + Tailwind (`frontend/`, port 3002)
 - Backend: Python 3.12, FastAPI, Pydantic, SQLAlchemy 2 (sync) + psycopg 3, Alembic (`backend/`)
 - DB: PostgreSQL + pgvector (one vector store only)
 - LLM: one provider behind a small adapter; structured outputs + tool calling
@@ -41,17 +41,21 @@ backend/
   app/
     main.py, config.py, db.py
     routers/              FastAPI routes (health, sources, copilot, actions...)
-    ingestion/            parse -> normalize -> chunk -> embed -> index   (planned)
-    retrieval/            metadata filtering, vector/hybrid search, ranking (planned)
-    generation/           LLM adapter, grounded answers, citations          (planned)
-    tools/                typed tool schemas, authz, timeouts, allow-list   (planned)
+    ingestion/            upload -> parse -> chunk -> embed -> index (pipeline.py)
+    retrieval/            dense + lexical -> RRF -> cross-encoder rerank -> threshold
+    generation/           prompt, LLM adapter (Claude), copilot loop, grounding checks
+    tools/                read-only tool registry (authz, timeouts, retries), mock CRM, actions
+    seed.py               synthetic workspaces/users/customers/tickets
   scripts/                one-off scripts (e.g. build_demo_pdf.py)
   tests/
-frontend/                 Next.js dashboard (planned)
-evals/                    cases.jsonl + run_eval.py (source of truth for metrics)
+frontend/                 Next.js dashboard: Overview (/), Copilot, Sources, Search lab, Approvals,
+                          Audit log, Evaluations. Design tokens in app/globals.css, primitives in
+                          components/ui.tsx; Playwright smoke tests in tests/
+evals/                    cases.jsonl (95 cases) + run_eval.py + results/ (source of truth for metrics)
 data/demo_docs/           synthetic docs; see data/README.md for what each file tests
+data/acme_docs/           a second tenant's private doc (cross-tenant leak tests)
 infra/db/init.sql         enables pgvector on a fresh DB volume
-docs/                     spec, architecture, rag-decisions
+docs/                     spec, architecture, rag-decisions, interview-prep
 ```
 
 ## Commands
@@ -74,9 +78,12 @@ Host ports: Postgres **5433**, API **8001** (5432/8000 are used by other local p
   `.venv/Scripts/alembic upgrade head`; new migration after editing `app/models.py`:
   `.venv/Scripts/alembic revision --autogenerate --rev-id 000N -m "what changed"`, then **review
   the generated file**; `.venv/Scripts/alembic check` confirms models and DB match.
-- Seed demo workspaces (idempotent): `docker compose exec api python -m scripts.seed`
-- Upload all demo docs via the API (idempotent, duplicates detected):
-  `docker compose exec api python -m scripts.upload_demo_docs`
+- Seed demo workspaces, users, customers, tickets (idempotent):
+  `docker compose exec api python -m scripts.seed`
+- Upload + index all demo docs via the API, waits until ready (idempotent; reindexes
+  never-processed duplicates): `docker compose exec api python -m scripts.upload_demo_docs`
+- Frontend: `cd frontend && npm install && npm run dev` (http://localhost:3002, proxies `/api`
+  to `API_URL`, default http://localhost:8001)
 - API docs / manual testing: http://localhost:8001/docs
 - See what the parser extracts from a file (from `backend/`):
   `.venv/Scripts/python -m scripts.parse_file ../data/demo_docs/billing-and-refunds-policy.pdf [--full]`
@@ -84,22 +91,37 @@ Host ports: Postgres **5433**, API **8001** (5432/8000 are used by other local p
 - See the chunks for a file: `.venv/Scripts/python -m scripts.chunk_file <file> [--max-tokens 60 --overlap 15]`
 - Tests use a separate `copilot_test` database (created + migrated automatically by
   `tests/conftest.py`); each test is rolled back.
-- Evals: `python evals/run_eval.py` (TBD)
+- Evals (needs seeded + indexed dev DB; runs in a rolled-back transaction):
+  `cd backend && .venv/Scripts/python ../evals/run_eval.py [--deprecate legacy-pricing-faq-2024.md] [--llm]`
+  or `docker compose exec api python /evals/run_eval.py`. Writes `evals/results/<run>.json`,
+  `latest.json`, and a per-case CSV. `--llm` calls the real model (costs money).
+- Embedding/reranker models download on first use to `backend/.cache/models` (Docker: `models`
+  volume). The first test run downloads them (~150 MB).
+- LLM: set `ANTHROPIC_API_KEY` in `.env`; without it the copilot runs in offline mode.
 
 ## API (so far)
 
-All `/api/*` routes need header `X-Workspace: <slug>` (e.g. `tasklane-support`).
-**Temporary** stand-in for auth, resolved only in `get_current_workspace` (`app/deps.py`);
-every query must still scope by the workspace it returns.
+All `/api/*` routes (except `/api/users`) need header `X-User: <email>` of a seeded user
+(`admin@`, `agent@`, `viewer@tasklane.example`; `admin@`/`agent@acme.example`). **Temporary**
+stand-in for auth, resolved only in `get_current_user` (`app/deps.py`); workspace and role come
+from that user. Roles via `require_role`: admin = sources; admin/agent = approve/reject.
 
-- `POST /api/sources`: multipart `file` (+ optional `title`). 201 new version, 200 duplicate
-  (same SHA-256), 400 empty, 413 too large, 415 wrong/unsupported type.
-- `GET /api/sources`, `GET /api/sources/{id}`: other workspaces' documents → 404.
+- Sources: `POST /api/sources` (admin; 201 new / 200 duplicate / 400 / 413 / 415; processing
+  starts in the background), `GET /api/sources[/{id}]`, `PATCH /api/sources/{id}`
+  `{deprecated}`, `POST /api/sources/{id}/reindex`, `GET /api/sources/{id}/chunks`.
+- Copilot: `POST /api/copilot/query` `{question, customer_id?, conversation_id?}`,
+  `POST /api/copilot/messages/{id}/feedback`, `GET /api/copilot/messages/{id}/trace`,
+  `GET /api/search?q=&mode=&k=` (retrieval only).
+- CRM/actions: `GET /api/customers`, `GET /api/customers/{id}/tickets`,
+  `GET /api/actions?status=`, `POST /api/actions/{id}/approve|reject`, `GET /api/audit-events`.
+- Meta: `GET /api/me`, `GET /api/users`, `GET /api/meta`, `GET /api/evaluations/latest`.
+- Other workspaces' rows are always 404 (tenant condition inside the query).
 
 Upload logic lives in `app/ingestion/upload.py` (no FastAPI). Files are stored under
 `UPLOAD_DIR` at `{workspace}/{document}/v{n}-{hash12}{ext}`; DB stores the relative path.
-A new version stays `pending` and `is_current=false` until processing succeeds (Step 6
-swaps it in), so retrieval never reads a half-processed version.
+A new version stays `pending` and `is_current=false` until `process_version`
+(`ingestion/pipeline.py`) succeeds and swaps it in within the same transaction, so retrieval
+never reads a half-processed version.
 
 ## Parsing
 
@@ -123,8 +145,20 @@ Shared helpers in `parsing/base.py`: `decode_text` (UTF-8, `\n` endings), `Secti
 `ChunkDraft`s. Chunks never cross sections; long sections split at sentence boundaries
 (whole rows inside tables, words for giant sentences); overlap is whole pieces. Tokens counted with tiktoken
 `cl100k_base` (`app/ingestion/tokens.py`). Format-agnostic: works on any `ParsedDocument`
-(`test_every_demo_doc_chunks_cleanly` covers all demo files). Not yet wired to uploads / saved
-to the DB.
+(`test_every_demo_doc_chunks_cleanly` covers all demo files).
+
+## Embeddings, retrieval, answering
+
+- Embeddings: `app/ingestion/embeddings.py` (bge-small-en-v1.5, 384 dims, fastembed; embeds
+  `heading path + chunk`; BGE query prefix on queries only).
+- Retrieval: `app/retrieval/search.py`, modes dense | lexical | hybrid | hybrid_rerank (default);
+  tenant/current/deprecated filters inside SQL; writes `retrieval_traces`. Tuning in `config.py`
+  (`retrieval_k=5`, `retrieval_candidates=20`, `rerank_top_n=20`, `min_rerank_score=-5`).
+- Copilot: `app/generation/copilot.py` (`ask`): retrieval → LLM tool loop or offline → grounding
+  checks → optional pending `ProposedAction`. Prompt in `generation/prompts.py`
+  (`PROMPT_VERSION`); bump it on every prompt change and re-run evals.
+- Tests: `tests/conftest.py` `indexed` fixture seeds and indexes all demo docs once per module
+  (real models); LLM behaviour is tested with a scripted `FakeLLM` (`tests/test_copilot.py`).
 
 ## Non-negotiable rules
 

@@ -25,16 +25,35 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-copilot}:${POSTGRES_PASSWORD:-copilot}@db:5432/${POSTGRES_DB:-copilot}
       UPLOAD_DIR: /uploads
+      MODEL_CACHE_DIR: /models
+      EVAL_RESULTS_DIR: /evals/results
+      WARMUP_MODELS: "true"
+      # Optional: without a key the copilot runs in offline (extractive) mode.
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      LLM_MODEL: ${LLM_MODEL:-claude-opus-5-5}
     ports:
       - "${API_PORT:-8001}:8000"
     volumes:
       - ./backend:/app
       - ./data:/data:ro
+      - ./evals:/evals
       - uploads:/uploads
+      - models:/models  # downloaded embedding/reranker models survive rebuilds
     depends_on:
       db:
         condition: service_healthy
 
+  web:
+    build:
+      context: ./frontend
+      args:
+        API_URL: http://api:8000  # baked into the Next.js /api rewrites at build time
+    ports:
+      - "${WEB_PORT:-3002}:3000"
+    depends_on:
+      - api
+
 volumes:
   pgdata:
   uploads:
+  models:
