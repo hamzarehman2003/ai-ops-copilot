@@ -14,7 +14,7 @@ test("overview shows key numbers and hands a question to the copilot", async ({ 
   await expect(page.getByText("Retrieval quality by mode")).toBeVisible();
 
   await page.getByLabel("Ask the copilot").fill("What does error SSO-401 mean?");
-  await page.getByRole("button", { name: "Ask" }).click();
+  await page.getByRole("button", { name: "Ask", exact: true }).click();
   await expect(page).toHaveURL(/\/copilot$/);
   await expect(page.getByTestId("assistant-answer")).toBeVisible({ timeout: 60_000 });
 });
@@ -56,7 +56,8 @@ test("copilot answers an example question with citation chips and a trace", asyn
 test("off-topic question shows the abstention banner", async ({ page }) => {
   await signInAs(page, "agent@tasklane.example");
   await page.goto("/copilot");
-  await page.getByRole("button", { name: "What is the capital of France?" }).click();
+  await page.getByTestId("question-input").fill("What is the capital of France?");
+  await page.getByTestId("question-input").press("Enter");
   await expect(page.getByTestId("abstained-banner")).toBeVisible({ timeout: 60_000 });
 });
 
@@ -93,8 +94,9 @@ test("viewer cannot see approve buttons; agent can", async ({ page }) => {
   await expect(page.getByTestId("decision-not-allowed")).toBeVisible();
   await expect(row.getByRole("button", { name: /Approve/ })).toHaveCount(0);
 
-  // Switch to the agent via the top-bar switcher: the buttons appear.
-  await page.getByTestId("user-switcher").selectOption("agent@tasklane.example");
+  // Switch to the agent via the user menu in the sidebar: the buttons appear.
+  await page.getByTestId("user-switcher").click();
+  await page.getByRole("menuitemradio", { name: /Sam Agent/ }).click();
   await expect(page.getByTestId("action-row").getByRole("button", { name: "Approve" })).toBeVisible();
   await expect(page.getByTestId("action-row").getByRole("button", { name: "Reject" })).toBeVisible();
 });

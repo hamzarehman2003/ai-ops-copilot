@@ -25,7 +25,7 @@ SessionFactoryDep = Annotated[Callable[[], Session], Depends(get_session_factory
 
 def get_current_user(
     session: SessionDep,
-    x_user: Annotated[str | None, Header(description="Email of a seeded demo user")] = None,
+    x_user: Annotated[str | None, Header(description="Email of the signed-in user")] = None,
 ) -> User:
     """Resolve the caller.
 

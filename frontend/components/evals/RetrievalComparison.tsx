@@ -1,5 +1,13 @@
-import { cx } from "../ui";
-import { formatNumber, isRecord } from "./ReportValue";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { cn } from "@/lib/utils";
+import { formatNumber, isRecord, tableHeadClass } from "./ReportValue";
 
 /** Retrieval modes as rows, metrics as columns; the best value per metric is highlighted. */
 export function RetrievalComparison({ modes }: { modes: Record<string, unknown> }) {
@@ -7,7 +15,7 @@ export function RetrievalComparison({ modes }: { modes: Record<string, unknown> 
     string,
     Record<string, unknown>,
   ][];
-  if (rows.length === 0) return <p className="text-[13px] text-ink-4">No retrieval modes.</p>;
+  if (rows.length === 0) return <p className="text-[13px] text-muted-foreground/60">No retrieval modes.</p>;
 
   const metrics = Array.from(new Set(rows.flatMap(([, m]) => Object.keys(m))));
   const best: Record<string, number> = {};
@@ -20,41 +28,41 @@ export function RetrievalComparison({ modes }: { modes: Record<string, unknown> 
   }
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-left text-[13px]" data-testid="retrieval-comparison">
-        <thead className="border-b border-line text-[12px] text-ink-3">
-          <tr>
-            <th className="py-2 pr-4 font-medium">Mode</th>
-            {metrics.map((m) => (
-              <th key={m} className="px-3 py-2 text-right font-medium">
-                {m}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-line">
-          {rows.map(([mode, values]) => (
-            <tr key={mode}>
-              <td className="py-2 pr-4 font-mono text-[12px] font-medium text-ink">{mode}</td>
-              {metrics.map((m) => {
-                const v = values[m];
-                const isBest = typeof v === "number" && best[m] === v;
-                return (
-                  <td
-                    key={m}
-                    className={cx(
-                      "px-3 py-2 text-right font-mono tabular-nums",
-                      isBest ? "font-semibold text-ok" : "text-ink-2",
-                    )}
-                  >
-                    {typeof v === "number" ? formatNumber(m, v) : v == null ? "—" : String(v)}
-                  </td>
-                );
-              })}
-            </tr>
+    <Table className="text-[13px]" data-testid="retrieval-comparison">
+      <TableHeader>
+        <TableRow className="hover:bg-transparent">
+          <TableHead className={cn(tableHeadClass, "pl-0")}>Mode</TableHead>
+          {metrics.map((m) => (
+            <TableHead key={m} className={cn(tableHeadClass, "text-right")}>
+              {m}
+            </TableHead>
           ))}
-        </tbody>
-      </table>
-    </div>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {rows.map(([mode, values]) => (
+          <TableRow key={mode}>
+            <TableCell className="py-2.5 pl-0 font-mono text-[12px] font-medium text-foreground">
+              {mode}
+            </TableCell>
+            {metrics.map((m) => {
+              const v = values[m];
+              const isBest = typeof v === "number" && best[m] === v;
+              return (
+                <TableCell
+                  key={m}
+                  className={cn(
+                    "numeric py-2.5 text-right",
+                    isBest ? "font-medium text-success" : "text-foreground/80",
+                  )}
+                >
+                  {typeof v === "number" ? formatNumber(m, v) : v == null ? "—" : String(v)}
+                </TableCell>
+              );
+            })}
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
   );
 }

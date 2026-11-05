@@ -177,7 +177,7 @@ def test_llm_failure_falls_back_to_offline_evidence(indexed):
         llm=FakeLLM(LLMError("RateLimitError: 429")),
     )
     assert run.mode == "offline"
-    assert "LLM unavailable" in run.warnings[0]
+    assert "language model is unavailable" in run.warnings[0]
     assert run.payload.citations
 
 

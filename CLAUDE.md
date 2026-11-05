@@ -49,8 +49,11 @@ backend/
   scripts/                one-off scripts (e.g. build_demo_pdf.py)
   tests/
 frontend/                 Next.js dashboard: Overview (/), Copilot, Sources, Search lab, Approvals,
-                          Audit log, Evaluations. Design tokens in app/globals.css, primitives in
-                          components/ui.tsx; Playwright smoke tests in tests/
+                          Audit log, Evaluations. shadcn/ui (radix-nova) in components/ui/ (add more
+                          with `npx shadcn@4.22.1 add <name>`, then pin any new deps exactly); theme
+                          variables (deep teal, light + dark) in app/globals.css; app-level wrappers
+                          (PageHeader, Panel, StatTile, StatusBadge...) in components/ui.tsx;
+                          Playwright smoke tests in tests/
 evals/                    cases.jsonl (95 cases) + run_eval.py + results/ (source of truth for metrics)
 data/demo_docs/           synthetic docs; see data/README.md for what each file tests
 data/acme_docs/           a second tenant's private doc (cross-tenant leak tests)

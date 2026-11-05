@@ -5,6 +5,14 @@ import { AnswerView } from "@/components/copilot/AnswerView";
 import { CustomerPanel } from "@/components/copilot/CustomerPanel";
 import { Icon } from "@/components/icons";
 import { Button, Card, ErrorBanner, PageHeader, Spinner } from "@/components/ui";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupText,
+  InputGroupTextarea,
+} from "@/components/ui/input-group";
+import { Kbd } from "@/components/ui/kbd";
 import { api, type QueryResponse } from "@/lib/api";
 
 const EXAMPLES: { tag: string; q: string }[] = [
@@ -12,7 +20,7 @@ const EXAMPLES: { tag: string; q: string }[] = [
   { tag: "Plans", q: "Is SSO available on our plan?" },
   { tag: "Billing", q: "Can we get a refund for an annual plan bought 20 days ago?" },
   { tag: "Errors", q: "What does error SSO-401 mean?" },
-  { tag: "Off-topic · abstains", q: "What is the capital of France?" },
+  { tag: "Integrations", q: "Why aren't GitHub pull requests linking to tasks?" },
 ];
 
 type Turn =
@@ -79,9 +87,9 @@ export default function CopilotPage() {
   return (
     <div className="animate-rise">
       <PageHeader
-        eyebrow="Copilot"
+        compact
         title="Ask, check, then act."
-        description="Answers grounded in the docs with citations, account facts from read-only tools, and ticket changes that wait for your approval."
+        description="Cited answers from the docs, account facts from read-only tools, and ticket changes that wait for your approval."
         actions={
           turns.length > 0 && (
             <Button
@@ -91,7 +99,7 @@ export default function CopilotPage() {
               }}
               disabled={pending}
             >
-              <Icon name="plus" className="h-3.5 w-3.5" />
+              <Icon name="plus" className="size-3.5" />
               New conversation
             </Button>
           )
@@ -102,16 +110,18 @@ export default function CopilotPage() {
           <CustomerPanel customerId={customerId} onChange={changeCustomer} />
         </div>
 
-        <Card className="flex min-h-[36rem] flex-col overflow-hidden">
+        <Card className="flex min-h-[36rem] flex-col overflow-hidden border">
           <div className="flex-1 space-y-7 px-5 py-6 sm:px-8" data-testid="chat-thread">
             {turns.length === 0 && !pending && (
-              <div className="mx-auto max-w-2xl py-6">
-                <p className="font-display text-[1.75rem] leading-tight text-ink">
+              <div className="mx-auto max-w-2xl py-2">
+                <p className="eyebrow">New conversation</p>
+                <p className="mt-1.5 text-[20px] font-semibold tracking-[-0.02em] text-foreground">
                   Start with a question.
                 </p>
-                <p className="mt-1.5 text-[13.5px] text-ink-3">
-                  Pick a customer on the left to let the copilot read their account, or try one of
-                  these.
+                <p className="mt-1.5 text-[13.5px] text-muted-foreground">
+                  {customerId
+                    ? "The copilot can now read this customer's account. Ask anything, or try one of these."
+                    : "Pick a customer on the left to let the copilot read their account, or try one of these."}
                 </p>
                 <div className="mt-6 grid gap-2.5 sm:grid-cols-2">
                   {EXAMPLES.map((ex) => (
@@ -120,12 +130,16 @@ export default function CopilotPage() {
                       type="button"
                       disabled={pending}
                       onClick={() => ask(ex.q)}
-                      className="group rounded-xl border border-line bg-paper/50 px-4 py-3 text-left transition-[border-color,background-color] hover:border-line-strong hover:bg-surface disabled:opacity-50"
+                      className="group flex flex-col gap-1.5 rounded-lg border bg-card px-4 py-3 text-left shadow-card transition-colors outline-none hover:bg-accent focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30 disabled:pointer-events-none disabled:opacity-50"
                     >
-                      <span className="eyebrow block text-ink-4 group-hover:text-accent" aria-hidden>
-                        {ex.tag}
+                      <span className="flex items-center justify-between gap-2" aria-hidden>
+                        <span className="eyebrow group-hover:text-primary">{ex.tag}</span>
+                        <Icon
+                          name="arrowRight"
+                          className="size-3.5 -translate-x-1 text-muted-foreground opacity-0 transition-[opacity,translate] group-hover:translate-x-0 group-hover:opacity-100"
+                        />
                       </span>
-                      <span className="mt-1 block text-[13.5px] leading-snug text-ink-2 group-hover:text-ink">
+                      <span className="text-[13.5px] leading-snug text-foreground/85 group-hover:text-foreground">
                         {ex.q}
                       </span>
                     </button>
@@ -136,7 +150,7 @@ export default function CopilotPage() {
             {turns.map((turn) =>
               turn.kind === "user" ? (
                 <div key={turn.id} className="flex animate-rise justify-end">
-                  <div className="max-w-[80%] rounded-2xl rounded-br-md bg-ink px-4 py-2.5 text-[14px] leading-relaxed whitespace-pre-wrap text-paper">
+                  <div className="max-w-[80%] rounded-lg rounded-br-sm bg-primary px-4 py-2.5 text-[14px] leading-relaxed whitespace-pre-wrap text-primary-foreground shadow-card">
                     {turn.text}
                   </div>
                 </div>
@@ -153,7 +167,7 @@ export default function CopilotPage() {
                   <div className="flex-1 space-y-2">
                     <ErrorBanner error={turn.error} />
                     <Button size="sm" onClick={() => ask(turn.question)} disabled={pending}>
-                      <Icon name="refresh" className="h-3.5 w-3.5" />
+                      <Icon name="refresh" className="size-3.5" />
                       Retry
                     </Button>
                   </div>
@@ -163,10 +177,10 @@ export default function CopilotPage() {
             {pending && (
               <div className="flex gap-3.5" data-testid="copilot-loading">
                 <AssistantMark />
-                <div className="flex items-center gap-2.5 pt-1 text-[13px] text-ink-3">
-                  <Spinner className="h-3.5 w-3.5" />
+                <div className="flex items-center gap-2.5 pt-1 text-[13px] text-muted-foreground">
+                  <Spinner className="size-3.5" />
                   Retrieving sources and drafting an answer…
-                  <span className="hidden text-ink-4 sm:inline">
+                  <span className="hidden text-muted-foreground/60 sm:inline">
                     the first query can take ~20 s while models load
                   </span>
                 </div>
@@ -175,46 +189,53 @@ export default function CopilotPage() {
             <div ref={bottomRef} />
           </div>
 
-          <div className="border-t border-line bg-paper/40 px-4 py-4 sm:px-6">
+          <div className="border-t bg-muted/40 px-4 py-4 sm:px-6">
             <form
-              className="flex items-end gap-2 rounded-xl border border-line-strong bg-surface p-1.5 pl-3.5 transition-[border-color,box-shadow] focus-within:border-ink-3 focus-within:ring-[3px] focus-within:ring-ink/[0.06]"
               onSubmit={(e) => {
                 e.preventDefault();
                 void ask(question);
               }}
             >
-              <textarea
-                aria-label="Question"
-                data-testid="question-input"
-                className="max-h-48 min-h-[2.25rem] flex-1 resize-none bg-transparent py-2 text-[14px] leading-relaxed text-ink placeholder:text-ink-4 focus:outline-none"
-                rows={1}
-                maxLength={2000}
-                placeholder="Ask about this customer, a policy, an error code…"
-                value={question}
-                onChange={(e) => setQuestion(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    void ask(question);
-                  }
-                }}
-              />
-              <Button
-                type="submit"
-                variant="primary"
-                disabled={pending || !question.trim()}
-                aria-label="Ask"
-                className="h-9 w-9 shrink-0 px-0! disabled:border-line disabled:bg-paper-2 disabled:text-ink-4 disabled:opacity-100"
-              >
-                {pending ? (
-                  <Spinner className="h-3.5 w-3.5 border-paper/30 border-t-paper" />
-                ) : (
-                  <Icon name="send" className="h-4 w-4" />
-                )}
-              </Button>
+              <InputGroup className="rounded-lg bg-card shadow-card has-disabled:bg-card has-disabled:opacity-100">
+                <InputGroupTextarea
+                  aria-label="Question"
+                  data-testid="question-input"
+                  className="max-h-48 min-h-11 px-3.5 pt-3 leading-relaxed placeholder:text-muted-foreground/70"
+                  rows={1}
+                  maxLength={2000}
+                  placeholder="Ask about this customer, a policy, an error code…"
+                  value={question}
+                  onChange={(e) => setQuestion(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      void ask(question);
+                    }
+                  }}
+                />
+                <InputGroupAddon align="block-end" className="gap-1.5 px-3.5">
+                  <InputGroupText className="hidden gap-1 text-[11.5px] font-normal text-muted-foreground/80 sm:flex">
+                    <Kbd>Enter</Kbd> to send · <Kbd>Shift</Kbd>+<Kbd>Enter</Kbd> new line
+                  </InputGroupText>
+                  <InputGroupButton
+                    type="submit"
+                    variant="default"
+                    size="icon-sm"
+                    disabled={pending || !question.trim()}
+                    aria-label="Ask"
+                    className="ml-auto rounded-md"
+                  >
+                    {pending ? (
+                      <Spinner className="size-3.5 border-primary-foreground/30 border-t-primary-foreground" />
+                    ) : (
+                      <Icon name="send" className="size-4" />
+                    )}
+                  </InputGroupButton>
+                </InputGroupAddon>
+              </InputGroup>
             </form>
-            <p className="mt-2 px-1 text-[11.5px] text-ink-4">
-              Enter to send · Shift + Enter for a new line · answers cite their sources or abstain
+            <p className="mt-2 px-1 text-[11.5px] text-muted-foreground/70">
+              Answers cite their sources or abstain. Write actions always wait for a human.
             </p>
           </div>
         </Card>
@@ -226,12 +247,12 @@ export default function CopilotPage() {
 function AssistantMark() {
   return (
     <span
-      className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-line bg-paper"
+      className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full border bg-card shadow-card"
       aria-hidden
     >
-      <svg viewBox="0 0 32 32" className="h-4 w-4">
-        <circle cx="13" cy="16" r="6.5" fill="none" stroke="var(--color-ink)" strokeWidth="2.6" />
-        <circle cx="21.5" cy="16" r="3.2" fill="var(--color-accent)" />
+      <svg viewBox="0 0 32 32" className="size-4">
+        <circle cx="13" cy="16" r="6.5" fill="none" stroke="var(--foreground)" strokeWidth="2.6" />
+        <circle cx="21.5" cy="16" r="3.2" fill="var(--primary)" />
       </svg>
     </span>
   );

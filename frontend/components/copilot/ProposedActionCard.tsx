@@ -5,6 +5,7 @@ import type { Action, ProposedActionSummary } from "@/lib/api";
 import { ActionDecision } from "../actions/ActionDecision";
 import { ActionResult } from "../actions/ActionResult";
 import { Icon } from "../icons";
+import { Badge, Card } from "../ui";
 
 export const ACTION_LABELS: Record<string, string> = {
   add_ticket_note: "Add internal note",
@@ -17,29 +18,40 @@ export function ProposedActionCard({ proposal }: { proposal: ProposedActionSumma
   const [decided, setDecided] = useState<Action | null>(null);
 
   return (
-    <div
-      className="overflow-hidden rounded-xl border border-accent/25 bg-surface"
-      data-testid="proposed-action"
-    >
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-accent/15 bg-accent-soft/60 px-4 py-2.5">
-        <Icon name="approve" className="h-4 w-4 text-accent" />
-        <span className="text-[13px] font-medium text-ink">
-          {ACTION_LABELS[proposal.type] ?? proposal.type}
+    <Card className="border border-primary/25" data-testid="proposed-action">
+      <div className="flex flex-wrap items-start gap-x-3 gap-y-2 border-b border-primary/15 bg-primary/5 px-4 py-3">
+        <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-md border border-primary/20 bg-card text-primary">
+          <Icon name="approve" className="size-4" />
         </span>
-        <span className="font-mono text-[11px] text-ink-3">on {proposal.ticket_id}</span>
-        <span className="ml-auto text-[11.5px] text-accent-ink">Needs your approval</span>
+        <div className="min-w-0 flex-1">
+          <p className="eyebrow text-primary/80">Proposed action</p>
+          <p className="mt-0.5 flex flex-wrap items-baseline gap-x-2 text-[13.5px] font-medium text-foreground">
+            {ACTION_LABELS[proposal.type] ?? proposal.type}
+            <span className="font-mono text-[11px] font-normal text-muted-foreground">
+              on {proposal.ticket_id}
+            </span>
+          </p>
+        </div>
+        {!decided && proposal.id != null && (
+          <Badge tone="amber" className="h-[22px] px-2 font-sans text-[10.5px] tracking-[0.08em] uppercase">
+            Needs approval
+          </Badge>
+        )}
       </div>
       <div className="p-4">
         {proposal.reason && (
-          <p className="mb-3 text-[13px] leading-relaxed text-ink-2">{proposal.reason}</p>
+          <p className="mb-3.5 text-[13px] leading-relaxed text-foreground/80">
+            <span className="text-muted-foreground">Why: </span>
+            {proposal.reason}
+          </p>
         )}
 
         {proposal.id == null ? (
           <div className="space-y-2 text-[13px]">
-            <p className="text-ink-2">
-              Value: <span className="font-medium text-ink">{proposal.value}</span>
+            <p className="text-foreground/80">
+              Value: <span className="font-medium text-foreground">{proposal.value}</span>
             </p>
-            <p className="rounded-lg bg-bad-soft px-3 py-1.5 text-[12px] text-bad">
+            <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-1.5 text-[12px] text-destructive">
               Not recorded{proposal.error ? `: ${proposal.error}` : ""}
             </p>
           </div>
@@ -54,6 +66,6 @@ export function ProposedActionCard({ proposal }: { proposal: ProposedActionSumma
           />
         )}
       </div>
-    </div>
+    </Card>
   );
 }

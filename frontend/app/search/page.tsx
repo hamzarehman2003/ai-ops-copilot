@@ -4,6 +4,13 @@ import { useState } from "react";
 import { Icon } from "@/components/icons";
 import { SearchResultCard } from "@/components/search/SearchResultCard";
 import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupInput,
+  InputGroupText,
+} from "@/components/ui/input-group";
+import {
   Button,
   cx,
   EmptyState,
@@ -77,79 +84,106 @@ export default function SearchLabPage() {
       />
 
       <form
-        className="mb-4"
+        className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center"
         onSubmit={(e) => {
           e.preventDefault();
           void search();
         }}
       >
-        <div className="flex items-center gap-3 rounded-2xl border border-line bg-surface py-2 pr-2 pl-5 shadow-card transition-[border-color,box-shadow] focus-within:border-ink-4 focus-within:shadow-pop">
-          <Icon name="search" className="h-[18px] w-[18px] shrink-0 text-ink-3" />
-          <input
+        <InputGroup className="h-10 flex-1 bg-card shadow-card">
+          <InputGroupAddon className="pl-3">
+            <Icon name="search" className="size-4" />
+          </InputGroupAddon>
+          <InputGroupInput
             aria-label="Query"
-            className="h-10 min-w-0 flex-1 bg-transparent text-[15px] text-ink placeholder:text-ink-4 focus:outline-none"
             data-testid="search-query"
+            className="text-[14px]"
             value={q}
             maxLength={500}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Search the knowledge base…"
           />
-          <label className="hidden items-center gap-2 border-l border-line pl-3 text-[12px] text-ink-3 sm:flex">
-            k
-            <input
+          {q && (
+            <InputGroupAddon align="inline-end">
+              <InputGroupButton size="icon-xs" aria-label="Clear query" onClick={() => setQ("")}>
+                <Icon name="close" className="size-3.5" />
+              </InputGroupButton>
+            </InputGroupAddon>
+          )}
+        </InputGroup>
+        <div className="flex items-center gap-2">
+          <InputGroup className="h-10 w-24 bg-card shadow-card" title="Results to return (1–20)">
+            <InputGroupAddon className="pl-3">
+              <InputGroupText className="eyebrow">k</InputGroupText>
+            </InputGroupAddon>
+            <InputGroupInput
               type="number"
               min={1}
               max={20}
               aria-label="k"
-              className="h-8 w-12 rounded-md border border-line bg-paper px-2 text-center font-mono text-[12.5px] text-ink focus:border-ink-4 focus:outline-none"
+              className="numeric text-[13px]"
               value={k}
               onChange={(e) => setK(Math.max(1, Math.min(20, Number(e.target.value) || 1)))}
             />
-          </label>
-          <Button type="submit" variant="primary" disabled={busy || !q.trim()} className="h-10 rounded-xl">
+          </InputGroup>
+          <Button
+            type="submit"
+            variant="primary"
+            disabled={busy || !q.trim()}
+            className="h-10 flex-1 px-4 sm:flex-none"
+          >
             Search
           </Button>
         </div>
       </form>
 
       <div className="mb-8 flex flex-wrap items-center justify-between gap-3">
-        <Segmented
-          label="Retrieval mode"
-          value={mode}
-          onChange={setMode}
-          options={SEARCH_MODES.map((m) => ({ value: m, label: MODE_LABELS[m] }))}
-        />
+        <div className="flex flex-wrap items-center gap-3">
+          <Segmented
+            label="Retrieval mode"
+            value={mode}
+            onChange={setMode}
+            options={SEARCH_MODES.map((m) => ({ value: m, label: MODE_LABELS[m] }))}
+          />
+          <span className="text-[12.5px] text-muted-foreground">{MODE_NOTES[mode]}</span>
+        </div>
         <Button onClick={() => void compareAll()} disabled={busy || !q.trim()}>
+          <Icon name="layers" className="size-3.5" />
           Compare all four modes
         </Button>
       </div>
 
       {busy && (
-        <div className="flex items-center gap-2.5 py-6 text-[13px] text-ink-3">
+        <div className="flex items-center gap-2.5 py-6 text-[13px] text-muted-foreground">
           <Spinner /> Searching…
         </div>
       )}
 
       {!busy && !single && !compare && (
-        <EmptyState title="Run a query">
+        <EmptyState
+          title="Run a query"
+          icon="search"
+          action={
+            <div className="flex flex-wrap justify-center gap-2">
+              {SAMPLE_QUERIES.map((s) => (
+                <Button
+                  key={s}
+                  size="sm"
+                  className="font-mono text-[12px]"
+                  onClick={() => {
+                    setQ(s);
+                    void search(s);
+                  }}
+                >
+                  {s}
+                </Button>
+              ))}
+            </div>
+          }
+        >
           Dense finds paraphrases, lexical finds exact codes like{" "}
-          <code className="font-mono text-ink-2">SSO-401</code>, hybrid fuses both with RRF, and
-          the reranker reorders the fused candidates.
-          <div className="mt-5 flex flex-wrap justify-center gap-2">
-            {SAMPLE_QUERIES.map((s) => (
-              <button
-                key={s}
-                type="button"
-                onClick={() => {
-                  setQ(s);
-                  void search(s);
-                }}
-                className="rounded-full border border-line bg-surface px-3 py-1 font-mono text-[12px] text-ink-2 transition-colors hover:border-ink-4 hover:text-ink"
-              >
-                {s}
-              </button>
-            ))}
-          </div>
+          <code className="font-mono text-foreground/80">SSO-401</code>, hybrid fuses both with RRF, and
+          the reranker reorders the fused candidates. Try one:
         </EmptyState>
       )}
 
@@ -174,19 +208,23 @@ function ModeResults({ outcome, compact }: { outcome: Outcome; compact?: boolean
   const r = outcome.response;
   return (
     <section className={cx(compact && "min-w-0")} data-testid={`results-${outcome.mode}`}>
-      <div className="mb-3 border-b border-line pb-2.5">
+      <div className="mb-3 border-b pb-2.5">
         <div className="flex items-baseline justify-between gap-2">
-          <h2 className="text-[14px] font-semibold text-ink">{MODE_LABELS[outcome.mode]}</h2>
+          <h2 className="text-[14px] font-semibold text-foreground">{MODE_LABELS[outcome.mode]}</h2>
           {r && (
-            <span className="font-mono text-[11.5px] text-ink-3">
+            <span className="numeric text-[11.5px] text-muted-foreground">
               {r.results.length} · {formatMs(r.latency_ms)}
             </span>
           )}
         </div>
-        <p className="text-[12px] text-ink-3">{MODE_NOTES[outcome.mode]}</p>
+        <p className="text-[12px] text-muted-foreground">{MODE_NOTES[outcome.mode]}</p>
       </div>
       {outcome.error != null && <ErrorBanner error={outcome.error} />}
-      {r?.results.length === 0 && <EmptyState title="No results" />}
+      {r?.results.length === 0 && (
+        <EmptyState title="No results" compact>
+          No chunks matched in this mode.
+        </EmptyState>
+      )}
       <div className={compact ? "space-y-2.5" : "space-y-3"}>
         {r?.results.map((res, i) => (
           <SearchResultCard key={res.chunk_id} rank={i + 1} result={res} compact={compact} />

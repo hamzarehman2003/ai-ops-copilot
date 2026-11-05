@@ -13,7 +13,7 @@ from app.models import Customer, Ticket, User, UserRole, Workspace
 
 WORKSPACES = [
     {"slug": "tasklane-support", "name": "Tasklane Support"},
-    {"slug": "acme-demo", "name": "Acme Corp (second tenant)"},
+    {"slug": "acme-demo", "name": "Acme Corp"},
 ]
 
 USERS = [
@@ -243,6 +243,7 @@ def seed(session: Session) -> dict[str, int]:
             workspace = Workspace(**ws)
             session.add(workspace)
             counts["workspaces"] += 1
+        workspace.name = ws["name"]  # keep display names in sync with this file
         workspaces[ws["slug"]] = workspace
     session.flush()
 

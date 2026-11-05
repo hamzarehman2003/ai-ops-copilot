@@ -4,11 +4,20 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type ReactNode } from "react";
 import { FileGlyph } from "@/components/FileGlyph";
-import { Icon } from "@/components/icons";
+import { Button as ShadButton } from "@/components/ui/button";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
+import { Icon, type IconName } from "@/components/icons";
 import { ModeChart, type ModeMetrics } from "@/components/overview/ModeChart";
-import { cx, Panel, StatTile, StatusBadge } from "@/components/ui";
+import { cx, EmptyState, PageHeader, Panel, StatTile, StatusBadge } from "@/components/ui";
 import { useUser } from "@/components/UserProvider";
-import { api, type Action, type AuditEvent, type EvalReport, type Meta, type Source } from "@/lib/api";
+import {
+  api,
+  type Action,
+  type AuditEvent,
+  type EvalReport,
+  type Meta,
+  type Source,
+} from "@/lib/api";
 import { formatMs, pct, timeAgo } from "@/lib/format";
 import { useAsync } from "@/lib/useAsync";
 
@@ -44,14 +53,15 @@ export default function OverviewPage() {
   const meta = useAsync<Meta>(() => api.meta(), []);
   const sources = useAsync<Source[]>(() => api.sources(), []);
   const actions = useAsync<Action[]>(() => api.actions(), []);
-  const audit = useAsync<AuditEvent[]>(() => api.auditEvents(7), []);
+  const audit = useAsync<AuditEvent[]>(() => api.auditEvents(6), []);
   const report = useAsync<EvalReport>(() => api.latestEvaluation(), []);
 
   const docs = sources.data ?? [];
   const ready = docs.filter((s) => s.latest_version?.status === "ready").length;
   const deprecated = docs.filter((s) => s.deprecated).length;
-  const pending = (actions.data ?? []).filter((a) => a.status === "pending").length;
-  const executed = (actions.data ?? []).filter((a) => a.status === "executed").length;
+  const allActions = actions.data ?? [];
+  const pendingActions = allActions.filter((a) => a.status === "pending");
+  const executed = allActions.filter((a) => a.status === "executed").length;
 
   const r = report.data;
   const retrieval = rec(r?.retrieval);
@@ -65,10 +75,10 @@ export default function OverviewPage() {
   const incidents = security
     ? SECURITY_KEYS.reduce((sum, k) => sum + (num(security[k]) ?? 0), 0)
     : null;
-  const adversarial = rec(rec(r?.dataset)?.by_category);
-  const adversarialCases = adversarial
+  const byCategory = rec(rec(r?.dataset)?.by_category);
+  const adversarialCases = byCategory
     ? ["cross_tenant", "injection", "unauthorized_action", "tool_fault"].reduce(
-        (s, k) => s + (num(adversarial[k]) ?? 0),
+        (s, k) => s + (num(byCategory[k]) ?? 0),
         0,
       )
     : null;
@@ -81,88 +91,83 @@ export default function OverviewPage() {
   });
 
   return (
-    <div className="animate-rise">
-      <header className="mb-8 flex flex-wrap items-end justify-between gap-6">
-        <div>
-          <div className="eyebrow mb-2.5">{today}</div>
-          <h1 className="font-display text-[2.6rem] leading-[1.02] tracking-[-0.02em] text-ink sm:text-[3.1rem]">
-            {greeting()}
-            {firstName ? (
-              <>
-                , <span className="italic">{firstName}</span>
-              </>
-            ) : null}
-            <span className="text-accent">.</span>
-          </h1>
-          <p className="mt-3 max-w-xl text-[14.5px] leading-relaxed text-ink-3">
+    <div>
+      <PageHeader
+        eyebrow={today}
+        title={`${greeting()}${firstName ? `, ${firstName}` : ""}`}
+        description={
+          <>
             The knowledge base, the approval queue and the latest evaluation run for{" "}
-            <span className="text-ink-2">{me?.workspace.name ?? "your workspace"}</span>.
-          </p>
-        </div>
-      </header>
+            {me?.workspace.name ?? "your workspace"}.
+          </>
+        }
+        actions={
+          <>
+            <LinkButton href="/sources" variant="secondary" icon="upload">
+              Add source
+            </LinkButton>
+            <LinkButton href="/copilot" icon="chat">
+              Open copilot
+            </LinkButton>
+          </>
+        }
+      />
 
       <AskBar />
 
-      <section className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="Key numbers">
+      <section className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="Key numbers">
         <StatTile
           label="Documents indexed"
           loading={sources.loading && !sources.data}
           value={ready}
-          unit={`/ ${docs.length}`}
+          unit={`of ${docs.length}`}
           note={
             <>
-              {meta.data?.index.current_chunks ?? "—"} chunks in the index
+              {meta.data?.index.current_chunks ?? "—"} chunks searchable
               {deprecated > 0 && ` · ${deprecated} deprecated`}
             </>
           }
         />
         <StatTile
-          label="Awaiting approval"
-          accent={pending > 0}
+          label="Waiting for a decision"
+          tone={pendingActions.length > 0 ? "warning" : "default"}
           loading={actions.loading && !actions.data}
-          value={pending}
-          unit={pending === 1 ? "action" : "actions"}
-          note={
-            <Link href="/actions" className="inline-flex items-center gap-1 hover:text-ink">
-              {executed} executed so far <Icon name="arrowRight" className="h-3 w-3" />
-            </Link>
-          }
+          value={pendingActions.length}
+          note={`${executed} executed after approval`}
         />
         <StatTile
           label="Top-1 retrieval accuracy"
+          tone="success"
           loading={report.loading && !report.data}
           value={best ? pct(best["hit@1"]) : "—"}
           unit={best ? "%" : undefined}
           note={
-            best
-              ? `MRR ${best.mrr.toFixed(3)} · ${String(best.n)} labelled questions`
-              : "Run evals/run_eval.py"
+            best ? `MRR ${best.mrr.toFixed(3)} on ${String(best.n)} questions` : "No evaluation yet"
           }
         />
         <StatTile
           label="Security incidents"
+          tone={incidents == null ? "default" : incidents === 0 ? "success" : "danger"}
           loading={report.loading && !report.data}
           value={incidents ?? "—"}
           note={
             incidents == null
               ? "No evaluation yet"
-              : `Leaks, injections and unapproved writes across ${adversarialCases ?? "—"} adversarial cases`
+              : `Across ${adversarialCases ?? "—"} adversarial test cases`
           }
         />
       </section>
 
-      <section className="mt-4 grid gap-4 lg:grid-cols-3">
+      <section className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         <Panel
-          className="lg:col-span-2"
-          eyebrow={r?.run_id ? `Eval run ${String(r.run_id)}` : "Evaluation"}
+          eyebrow="Latest evaluation"
           title="Retrieval quality by mode"
-          actions={
-            <Link
-              href="/evals"
-              className="inline-flex items-center gap-1 text-[12.5px] text-ink-3 hover:text-ink"
-            >
-              Full report <Icon name="arrowUpRight" className="h-3.5 w-3.5" />
-            </Link>
+          footer={
+            r ? (
+              <span className="numeric text-[12px]">
+                run {String(r.run_id)} · p50 {formatMs(num(retrieval?.latency_ms_p50))} per search
+              </span>
+            ) : undefined
           }
         >
           {modes ? (
@@ -179,10 +184,60 @@ export default function OverviewPage() {
         </Panel>
       </section>
 
-      <section className="mt-4 grid gap-4 lg:grid-cols-3">
+      <Panel
+        className="mt-6"
+        eyebrow="Oldest first"
+        title="Needs your decision"
+        footer={
+          <span className="ml-auto">
+            <FooterLink href="/actions">Open approvals</FooterLink>
+          </span>
+        }
+      >
+        {pendingActions.length === 0 ? (
+          <EmptyState icon="inbox" title="Nothing waiting" compact>
+            When the copilot proposes a ticket note, tag or status change, it waits here until
+            someone approves or rejects it.
+          </EmptyState>
+        ) : (
+          <ul className="-mx-2 divide-y divide-border/70">
+            {[...pendingActions]
+              .reverse()
+              .slice(0, 5)
+              .map((a) => (
+                <li key={a.id}>
+                  <Link
+                    href="/actions"
+                    className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-md px-2 py-3 transition-colors hover:bg-muted/60"
+                  >
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-medium text-foreground">{a.customer}</span>
+                      <span className="numeric block text-[12px] text-muted-foreground">
+                        {a.ticket} · {timeAgo(a.created_at)}
+                      </span>
+                    </span>
+                    <span className="hidden min-w-0 flex-1 truncate text-[13.5px] text-foreground/80 md:block">
+                      {a.value}
+                    </span>
+                    <StatusBadge status={a.status} />
+                  </Link>
+                </li>
+              ))}
+          </ul>
+        )}
+      </Panel>
+
+      <section className="mt-6 grid gap-6 lg:grid-cols-3">
         <Panel
-          eyebrow={answers?.mode ? `${String(answers.mode)} answers` : "Answers"}
+          eyebrow="Latest evaluation"
           title="Answer quality"
+          footer={
+            latency ? (
+              <span className="numeric text-[12px]">
+                median answer {formatMs(num(latency.answer_p50))}
+              </span>
+            ) : undefined
+          }
         >
           {answers ? (
             <ul className="space-y-3.5">
@@ -190,25 +245,19 @@ export default function OverviewPage() {
                 const v = num(answers[k]) ?? 0;
                 return (
                   <li key={k}>
-                    <div className="mb-1.5 flex items-baseline justify-between gap-3 text-[12.5px]">
-                      <span className="text-ink-2">{label}</span>
-                      <span className="font-mono text-ink tabular-nums">{pct(v, 0)}%</span>
+                    <div className="mb-1.5 flex items-baseline justify-between gap-3 text-[13px]">
+                      <span className="text-foreground/80">{label}</span>
+                      <span className="numeric text-foreground">{pct(v, 0)}%</span>
                     </div>
-                    <div className="h-1.5 overflow-hidden rounded-full bg-paper-2">
+                    <div className="h-1.5 overflow-hidden rounded-full bg-muted">
                       <div
-                        className="h-full rounded-r-[4px] bg-ink"
+                        className="h-full rounded-full bg-primary"
                         style={{ width: `${v * 100}%` }}
                       />
                     </div>
                   </li>
                 );
               })}
-              {latency && (
-                <li className="flex items-center justify-between border-t border-line pt-3 text-[12.5px]">
-                  <span className="text-ink-3">Median end-to-end latency</span>
-                  <span className="font-mono text-ink">{formatMs(num(latency.answer_p50))}</span>
-                </li>
-              )}
             </ul>
           ) : (
             <Placeholder loading={report.loading}>No answer metrics yet.</Placeholder>
@@ -218,27 +267,28 @@ export default function OverviewPage() {
         <Panel
           eyebrow="Audit log"
           title="Recent activity"
-          actions={
-            <Link
-              href="/audit"
-              className="inline-flex items-center gap-1 text-[12.5px] text-ink-3 hover:text-ink"
-            >
-              All <Icon name="arrowUpRight" className="h-3.5 w-3.5" />
-            </Link>
+          footer={
+            <span className="ml-auto">
+              <FooterLink href="/audit">View all</FooterLink>
+            </span>
           }
         >
           {audit.data?.length ? (
-            <ol className="relative space-y-4 before:absolute before:top-1.5 before:bottom-1.5 before:left-[3.5px] before:w-px before:bg-line">
+            <ol className="relative space-y-4 before:absolute before:top-1.5 before:bottom-1.5 before:left-[3.5px] before:w-px before:bg-border">
               {audit.data.map((e) => (
                 <li key={e.id} className="relative pl-5">
                   <span
                     className={cx(
-                      "absolute top-1.5 left-0 h-2 w-2 rounded-full ring-[3px] ring-surface",
-                      /fail|reject|denied/.test(e.event_type) ? "bg-bad" : e.event_type.startsWith("action.") ? "bg-accent" : "bg-ink-4",
+                      "absolute top-1.5 left-0 h-2 w-2 rounded-full ring-[3px] ring-card",
+                      /fail|reject|denied/.test(e.event_type)
+                        ? "bg-destructive"
+                        : e.event_type.startsWith("action.")
+                          ? "bg-warning"
+                          : "bg-primary",
                     )}
                   />
-                  <div className="text-[13px] leading-snug text-ink">{describeEvent(e)}</div>
-                  <div className="mt-0.5 text-[11.5px] text-ink-3">
+                  <div className="text-[13.5px] leading-snug text-foreground">{describeEvent(e)}</div>
+                  <div className="mt-0.5 text-[12px] text-muted-foreground">
                     {e.actor_name ?? "System"} · {timeAgo(e.created_at)}
                   </div>
                 </li>
@@ -252,47 +302,83 @@ export default function OverviewPage() {
         <Panel
           eyebrow={`${docs.length} documents`}
           title="Knowledge base"
-          actions={
-            <Link
-              href="/sources"
-              className="inline-flex items-center gap-1 text-[12.5px] text-ink-3 hover:text-ink"
-            >
-              Manage <Icon name="arrowUpRight" className="h-3.5 w-3.5" />
-            </Link>
+          bodyClassName="px-3 pb-3"
+          footer={
+            <span className="ml-auto">
+              <FooterLink href="/sources">Manage sources</FooterLink>
+            </span>
           }
-          bodyClassName="px-2 pb-2"
         >
           {docs.length ? (
             <ul>
-              {docs.slice(0, 7).map((s) => (
+              {docs.slice(0, 6).map((s) => (
                 <li
                   key={s.id}
-                  className="flex items-center gap-3 rounded-lg px-3 py-2 hover:bg-paper"
+                  className="flex items-center gap-3 rounded-md px-2 py-2 transition-colors hover:bg-muted/60"
                 >
                   <FileGlyph type={s.source_type} />
                   <div className="min-w-0 flex-1">
                     <div
                       className={cx(
-                        "truncate text-[13px] text-ink",
-                        s.deprecated && "text-ink-3 line-through decoration-ink-4",
+                        "truncate text-[13.5px] text-foreground",
+                        s.deprecated && "text-muted-foreground line-through decoration-muted-foreground/60",
                       )}
                     >
                       {s.title}
                     </div>
-                    <div className="truncate font-mono text-[11px] text-ink-4">{s.filename}</div>
+                    <div className="truncate font-mono text-[11px] text-muted-foreground/60">{s.filename}</div>
                   </div>
                   {s.latest_version && <StatusBadge status={s.latest_version.status} />}
                 </li>
               ))}
             </ul>
           ) : (
-            <div className="px-3">
+            <div className="px-2">
               <Placeholder loading={sources.loading}>No documents uploaded yet.</Placeholder>
             </div>
           )}
         </Panel>
       </section>
     </div>
+  );
+}
+
+function LinkButton({
+  href,
+  icon,
+  variant = "primary",
+  children,
+}: {
+  href: string;
+  icon: IconName;
+  variant?: "primary" | "secondary";
+  children: ReactNode;
+}) {
+  return (
+    <ShadButton
+      asChild
+      size="lg"
+      variant={variant === "primary" ? "default" : "outline"}
+      className={cx(
+        "px-3.5",
+        variant === "primary" ? "shadow-[inset_0_1px_0_rgb(255_255_255/0.14)]" : "bg-card shadow-card",
+      )}
+    >
+      <Link href={href}>
+        <Icon name={icon} />
+        {children}
+      </Link>
+    </ShadButton>
+  );
+}
+
+function FooterLink({ href, children }: { href: string; children: ReactNode }) {
+  return (
+    <ShadButton asChild variant="ghost" size="sm">
+      <Link href={href}>
+        {children} <Icon name="arrowRight" />
+      </Link>
+    </ShadButton>
   );
 }
 
@@ -304,27 +390,32 @@ function AskBar() {
     router.push(text ? `/copilot?q=${encodeURIComponent(text)}` : "/copilot");
   };
   return (
+    // action/name make it work even before hydration: a native submit lands on /copilot?q=...
     <form
+      action="/copilot"
       onSubmit={(e) => {
         e.preventDefault();
         go();
       }}
-      className="group flex items-center gap-3 rounded-2xl border border-line bg-surface py-2 pr-2 pl-5 shadow-card transition-[border-color,box-shadow] focus-within:border-ink-4 focus-within:shadow-pop"
     >
-      <Icon name="chat" className="h-[18px] w-[18px] shrink-0 text-ink-3" />
-      <input
-        aria-label="Ask the copilot"
-        value={q}
-        onChange={(e) => setQ(e.target.value)}
-        placeholder="Ask the copilot about a policy, an error code, or a customer…"
-        className="h-10 min-w-0 flex-1 bg-transparent text-[15px] text-ink placeholder:text-ink-4 focus:outline-none"
-      />
-      <button
-        type="submit"
-        className="inline-flex h-10 items-center gap-2 rounded-xl bg-ink px-4 text-[13.5px] font-medium text-paper transition-colors hover:bg-ink-2"
-      >
-        Ask <Icon name="arrowRight" className="h-4 w-4" />
-      </button>
+      <InputGroup className="h-12 bg-card shadow-card">
+        <InputGroupAddon className="pl-4">
+          <Icon name="chat" />
+        </InputGroupAddon>
+        <InputGroupInput
+          aria-label="Ask the copilot"
+          name="q"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Ask the copilot about a policy, an error code, or a customer…"
+          className="text-[14px]"
+        />
+        <InputGroupAddon align="inline-end" className="pr-1.5">
+          <ShadButton type="submit" size="lg" className="px-3.5">
+            Ask <Icon name="arrowRight" />
+          </ShadButton>
+        </InputGroupAddon>
+      </InputGroup>
     </form>
   );
 }
@@ -347,8 +438,8 @@ function Pipeline({ meta }: { meta?: Meta }) {
       title: "Gate",
       detail: (
         <>
-          Keep top {meta?.retrieval.k ?? "—"} above score{" "}
-          {meta?.retrieval.min_rerank_score ?? "—"}, else abstain
+          Keep top {meta?.retrieval.k ?? "—"} above score {meta?.retrieval.min_rerank_score ?? "—"},
+          else abstain
         </>
       ),
     },
@@ -357,30 +448,30 @@ function Pipeline({ meta }: { meta?: Meta }) {
       detail: meta?.llm.enabled ? (
         <>{meta.llm.model} with cited sources and read-only tools</>
       ) : (
-        <>Offline: quotes the evidence with citations</>
+        <>Quotes the most relevant evidence, with citations</>
       ),
     },
   ];
   return (
-    <ol className="space-y-0">
+    <ol>
       {steps.map((s, i) => (
         <li key={s.title} className="relative flex gap-3.5 pb-4 last:pb-0">
           {i < steps.length - 1 && (
-            <span className="absolute top-7 bottom-0 left-[13px] w-px bg-line" aria-hidden />
+            <span className="absolute top-7 bottom-0 left-[13px] w-px bg-border" aria-hidden />
           )}
           <span
             className={cx(
-              "relative flex h-[27px] w-[27px] shrink-0 items-center justify-center rounded-full border font-mono text-[11px]",
+              "numeric relative flex h-[27px] w-[27px] shrink-0 items-center justify-center rounded-full border text-[11px]",
               i === steps.length - 1
-                ? "border-ink bg-ink text-paper"
-                : "border-line-strong bg-surface text-ink-2",
+                ? "border-primary bg-primary text-primary-foreground"
+                : "border-input bg-card text-foreground/80",
             )}
           >
             {i + 1}
           </span>
           <div className="pt-0.5">
-            <div className="text-[13px] font-medium text-ink">{s.title}</div>
-            <div className="text-[12.5px] leading-snug text-ink-3">{s.detail}</div>
+            <div className="text-[14px] font-medium text-foreground">{s.title}</div>
+            <div className="text-[13px] leading-snug text-muted-foreground">{s.detail}</div>
           </div>
         </li>
       ))}
@@ -392,11 +483,15 @@ function Placeholder({ loading, children }: { loading?: boolean; children: React
   return loading ? (
     <div className="space-y-2.5 py-2">
       {[0, 1, 2].map((i) => (
-        <div key={i} className="h-3 animate-pulse rounded bg-paper-2" style={{ width: `${90 - i * 18}%` }} />
+        <div
+          key={i}
+          className="h-3 animate-pulse rounded bg-muted"
+          style={{ width: `${90 - i * 18}%` }}
+        />
       ))}
     </div>
   ) : (
-    <p className="py-4 text-[13px] text-ink-3">{children}</p>
+    <p className="py-4 text-[13px] text-muted-foreground">{children}</p>
   );
 }
 
@@ -410,7 +505,12 @@ const ACTION_VERBS: Record<string, string> = {
 
 function describeEvent(e: AuditEvent): string {
   const d = e.data ?? {};
-  const file = typeof d.document === "string" ? d.document : typeof d.filename === "string" ? d.filename : null;
+  const file =
+    typeof d.document === "string"
+      ? d.document
+      : typeof d.filename === "string"
+        ? d.filename
+        : null;
   switch (e.event_type) {
     case "source.indexed":
       return `Indexed ${file ?? "a document"}${d.version != null ? ` v${String(d.version)}` : ""}${d.chunks != null ? `, ${String(d.chunks)} chunk${d.chunks === 1 ? "" : "s"}` : ""}`;

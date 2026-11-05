@@ -1,110 +1,231 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
 
 /*
- * Design tokens. Warm "paper" neutrals, one ink colour for text and primary actions, and a
- * single vermilion accent used sparingly (active state, focus, the one highlighted series).
- * Status colours are reserved for state and always ship with a label.
+ * Theme for the shadcn/ui components. Cool gray neutrals with one deep-teal primary; status
+ * colours (success, warning, destructive) are reserved for state and always ship with a
+ * label. Light values in :root, dark values in .dark: every colour in the app comes from
+ * these variables, so re-theming means editing this file only.
  */
+
 @theme inline {
-  --font-sans: var(--font-geist), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-display: var(--font-instrument), "Iowan Old Style", Georgia, serif;
-  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-}
+  --font-sans: var(--font-plex-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-heading: var(--font-plex-sans), ui-sans-serif, system-ui, sans-serif;
 
-@theme {
-  --color-paper: #f5f4f0;
-  --color-paper-2: #efede7;
-  --color-surface: #ffffff;
-  --color-line: #e5e2da;
-  --color-line-strong: #d3cfc4;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
 
-  --color-ink: #1a1917;
-  --color-ink-2: #45433e;
-  --color-ink-3: #75726a;
-  --color-ink-4: #a29e94;
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-info: var(--info);
+  --color-plum: var(--plum);
+  --color-code: var(--code);
+  --color-code-foreground: var(--code-foreground);
 
-  --color-accent: #cf4a1f;
-  --color-accent-ink: #9a3412;
-  --color-accent-soft: #fbece5;
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
 
-  --color-ok: #2d7048;
-  --color-ok-soft: #e8f2eb;
-  --color-warn: #93600c;
-  --color-warn-soft: #f9f0dc;
-  --color-bad: #b02a20;
-  --color-bad-soft: #f9e8e5;
-  --color-info: #2b5a8a;
-  --color-info-soft: #e7eef6;
-  --color-plum: #6b3f7a;
-  --color-plum-soft: #f1e9f3;
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
 
-  --shadow-card: 0 1px 0 rgb(26 25 23 / 0.03), 0 1px 2px rgb(26 25 23 / 0.04);
-  --shadow-pop: 0 1px 2px rgb(26 25 23 / 0.06), 0 12px 32px -8px rgb(26 25 23 / 0.18);
-
-  --animate-rise: rise 0.35s cubic-bezier(0.2, 0.7, 0.2, 1) both;
-  --animate-cite-flash: cite-flash 1.6s ease-out;
-
-  @keyframes rise {
-    from {
-      opacity: 0;
-      transform: translateY(4px);
-    }
-    to {
-      opacity: 1;
-      transform: none;
-    }
-  }
-  /* A citation card briefly flashes when its [S#] chip is clicked. */
-  @keyframes cite-flash {
-    0% {
-      box-shadow: 0 0 0 3px var(--color-accent);
-    }
-    100% {
-      box-shadow: 0 0 0 3px transparent;
-    }
-  }
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
 }
 
 :root {
-  color-scheme: light;
+  --radius: 0.375rem;
+
+  --background: #f4f6f6;
+  --foreground: #172022;
+  --card: #fdfefe;
+  --card-foreground: #172022;
+  --popover: #fdfefe;
+  --popover-foreground: #172022;
+  --muted: #e9eeee;
+  --muted-foreground: #5c6b6d;
+  --secondary: #e9eeee;
+  --secondary-foreground: #172022;
+  --accent: #e3eaea; /* hover backgrounds */
+  --accent-foreground: #172022;
+  --border: #dfe5e6;
+  --input: #cad4d5;
+
+  /* The one accent: deep petrol teal */
+  --primary: #0f5560;
+  --primary-foreground: #f2f8f8;
+  --ring: #0f5560;
+
+  /* Status */
+  --success: #2a7550;
+  --warning: #9a650e;
+  --destructive: #ad3a2e;
+  --info: #2b6596;
+  --plum: #6b4a8a;
+
+  --code: #10292d;
+  --code-foreground: #d7e8e9;
+
+  /* Charts: one hue family, light to dark */
+  --chart-1: #0f5560;
+  --chart-2: #2a8a96;
+  --chart-3: #9fc6cb;
+  --chart-4: #9a650e;
+  --chart-5: #5c6b6d;
+
+  --sidebar: #edf1f1;
+  --sidebar-foreground: #172022;
+  --sidebar-primary: #0f5560;
+  --sidebar-primary-foreground: #f2f8f8;
+  --sidebar-accent: #e1e8e8;
+  --sidebar-accent-foreground: #172022;
+  --sidebar-border: #dfe5e6;
+  --sidebar-ring: #0f5560;
+
+  --shadow-color: 23 32 34;
 }
 
-html {
-  -webkit-text-size-adjust: 100%;
-  text-rendering: optimizeLegibility;
+.dark {
+  --background: #0e1415;
+  --foreground: #e3ecec;
+  --card: #131b1c;
+  --card-foreground: #e3ecec;
+  --popover: #131b1c;
+  --popover-foreground: #e3ecec;
+  --muted: #1a2324;
+  --muted-foreground: #8fa1a3;
+  --secondary: #1a2324;
+  --secondary-foreground: #e3ecec;
+  --accent: #1e292a;
+  --accent-foreground: #e3ecec;
+  --border: #233032;
+  --input: #2f3d3f;
+
+  --primary: #5cb7c2; /* lighter teal so it reads on dark */
+  --primary-foreground: #0a2226;
+  --ring: #5cb7c2;
+
+  --success: #63bd8f;
+  --warning: #dcaa4d;
+  --destructive: #e07b6e;
+  --info: #74a8dc;
+  --plum: #b394d6;
+
+  --code: #0a1112;
+  --code-foreground: #cfe1e2;
+
+  --chart-1: #5cb7c2;
+  --chart-2: #3f8e98;
+  --chart-3: #2d6870;
+  --chart-4: #dcaa4d;
+  --chart-5: #8fa1a3;
+
+  --sidebar: #111819;
+  --sidebar-foreground: #e3ecec;
+  --sidebar-primary: #5cb7c2;
+  --sidebar-primary-foreground: #0a2226;
+  --sidebar-accent: #1b2526;
+  --sidebar-accent-foreground: #e3ecec;
+  --sidebar-border: #202c2e;
+  --sidebar-ring: #5cb7c2;
+
+  --shadow-color: 0 0 0;
 }
 
-body {
-  background: var(--color-paper);
-  color: var(--color-ink);
-  font-feature-settings: "ss01", "cv11";
-}
+/* Small reusable styles */
 
-::selection {
-  background: var(--color-accent-soft);
-  color: var(--color-accent-ink);
-}
-
-/* Quiet scrollbars inside panels. */
-* {
-  scrollbar-width: thin;
-  scrollbar-color: var(--color-line-strong) transparent;
-}
-
-summary::-webkit-details-marker {
-  display: none;
-}
-
-.cite-flash {
-  animation: var(--animate-cite-flash);
-}
-
-/* Small uppercase label used above sections and in tables. */
+/* Small-caps label above a title or a number: "DOCUMENTS INDEXED". */
 @utility eyebrow {
-  font-family: var(--font-mono);
-  font-size: 10.5px;
+  font-size: 0.6875rem;
   font-weight: 500;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.11em;
   text-transform: uppercase;
-  color: var(--color-ink-3);
+  color: var(--muted-foreground);
+}
+
+/* A barely-there two-layer shadow for cards. */
+@utility shadow-card {
+  box-shadow:
+    0 1px 0 rgb(var(--shadow-color) / 0.03),
+    0 1px 3px rgb(var(--shadow-color) / 0.07);
+}
+
+@utility shadow-pop {
+  box-shadow:
+    0 1px 2px rgb(var(--shadow-color) / 0.08),
+    0 14px 32px -10px rgb(var(--shadow-color) / 0.25);
+}
+
+/* Figures that line up in columns. */
+@utility numeric {
+  font-family: var(--font-plex-mono), ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+@keyframes cite-flash {
+  0% {
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 35%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 3px transparent;
+  }
+}
+.cite-flash {
+  animation: cite-flash 1.6s ease-out;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    @apply font-sans antialiased;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  ::selection {
+    background: color-mix(in srgb, var(--primary) 18%, transparent);
+  }
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+  summary::-webkit-details-marker {
+    display: none;
+  }
 }

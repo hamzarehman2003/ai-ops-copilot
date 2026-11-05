@@ -1,11 +1,23 @@
 import type { ReactNode } from "react";
-import { cx } from "../ui";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { cn } from "@/lib/utils";
 
 // Generic, defensive rendering for the eval report: unknown keys still show up sensibly.
 
 const RATE_KEY =
   /(rate|recall|precision|accuracy|mrr|ndcg|hit|pct|ratio|share|faithful|grounded|correct|f1|coverage|claims|facts|answerable|_used|handled)/i;
 const MS_KEY = /(^|_)(ms|latency)|_ms$|latency/i;
+
+/** Small-caps ledger header used by every eval table. */
+export const tableHeadClass =
+  "h-9 text-[10.5px] font-medium tracking-[0.1em] text-muted-foreground uppercase";
 
 export function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
@@ -26,14 +38,14 @@ export function formatNumber(key: string, n: number): string {
 }
 
 export function ReportValue({ name, value }: { name: string; value: unknown }): ReactNode {
-  if (value === null || value === undefined) return <span className="text-ink-4">—</span>;
+  if (value === null || value === undefined) return <span className="text-muted-foreground/60">—</span>;
   if (typeof value === "number") {
-    return <span className="font-mono tabular-nums">{formatNumber(name, value)}</span>;
+    return <span className="numeric">{formatNumber(name, value)}</span>;
   }
   if (typeof value === "boolean") return <span className="font-mono">{String(value)}</span>;
   if (typeof value === "string") return <span className="break-words">{value}</span>;
   if (Array.isArray(value)) {
-    if (value.length === 0) return <span className="text-ink-4">[]</span>;
+    if (value.length === 0) return <span className="text-muted-foreground/60">[]</span>;
     if (value.every(isRecord)) return <RecordTable rows={value} />;
     return <span className="break-words">{value.map((v) => String(v)).join(", ")}</span>;
   }
@@ -54,49 +66,56 @@ export function KeyValueTable({
   parentKey?: string;
 }) {
   const entries = Object.entries(data).filter(([k]) => !omit.includes(k));
-  if (entries.length === 0) return <span className="text-[13px] text-ink-4">No data</span>;
+  if (entries.length === 0) return <span className="text-[13px] text-muted-foreground/60">No data</span>;
   return (
-    <table className={cx("w-full text-[13px]", nested && "text-[12px]")}>
-      <tbody className="divide-y divide-line">
+    <Table className={cn("text-[13px]", nested && "text-[12px]")}>
+      <TableBody>
         {entries.map(([k, v]) => (
-          <tr key={k} className="align-top">
-            <th className="w-1/3 py-1.5 pr-3 text-left font-normal text-ink-3">{humanize(k)}</th>
-            <td className="py-1.5 text-ink">
+          <TableRow key={k} className="align-top">
+            <TableCell
+              className={cn(
+                "w-1/3 pr-3 pl-0 align-top whitespace-normal text-muted-foreground",
+                nested ? "py-1" : "py-2",
+              )}
+            >
+              {humanize(k)}
+            </TableCell>
+            <TableCell
+              className={cn("pr-0 align-top whitespace-normal text-foreground", nested ? "py-1" : "py-2")}
+            >
               <ReportValue name={parentKey ? `${parentKey}.${k}` : k} value={v} />
-            </td>
-          </tr>
+            </TableCell>
+          </TableRow>
         ))}
-      </tbody>
-    </table>
+      </TableBody>
+    </Table>
   );
 }
 
 export function RecordTable({ rows }: { rows: Record<string, unknown>[] }) {
   const columns = Array.from(new Set(rows.flatMap((r) => Object.keys(r))));
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-left text-[12px]">
-        <thead className="text-ink-3">
-          <tr>
-            {columns.map((c) => (
-              <th key={c} className="px-2 py-1.5 font-medium">
-                {humanize(c)}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-line">
-          {rows.map((r, i) => (
-            <tr key={i} className="align-top">
-              {columns.map((c) => (
-                <td key={c} className="px-2 py-1.5">
-                  <ReportValue name={c} value={r[c]} />
-                </td>
-              ))}
-            </tr>
+    <Table className="text-[12px]">
+      <TableHeader>
+        <TableRow className="hover:bg-transparent">
+          {columns.map((c) => (
+            <TableHead key={c} className={tableHeadClass}>
+              {humanize(c)}
+            </TableHead>
           ))}
-        </tbody>
-      </table>
-    </div>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {rows.map((r, i) => (
+          <TableRow key={i} className="align-top">
+            {columns.map((c) => (
+              <TableCell key={c} className="max-w-md min-w-24 align-top whitespace-normal">
+                <ReportValue name={c} value={r[c]} />
+              </TableCell>
+            ))}
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
   );
 }

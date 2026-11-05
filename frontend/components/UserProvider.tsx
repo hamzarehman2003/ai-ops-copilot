@@ -1,14 +1,14 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
-import { api, setApiUser, type DemoUser, type Me } from "@/lib/api";
+import { api, setApiUser, type UserOption, type Me } from "@/lib/api";
 import { DEFAULT_USER } from "@/lib/roles";
 
 const STORAGE_KEY = "copilot.user";
 
 interface UserContextValue {
   email: string;
-  users: DemoUser[];
+  users: UserOption[];
   me: Me | null;
   meError: unknown;
   setEmail: (email: string) => void;
@@ -25,12 +25,12 @@ function readStoredEmail(): string {
 }
 
 /**
- * "Signed in as" stand-in for auth: the chosen demo user's email is sent as `X-User` on every
+ * "Signed in as" stand-in for auth: the chosen user's email is sent as `X-User` on every
  * request. Children are keyed by email so every page remounts (fresh state) on a switch.
  */
 export function UserProvider({ children }: { children: ReactNode }) {
   const [email, setEmailState] = useState<string | null>(null);
-  const [users, setUsers] = useState<DemoUser[]>([]);
+  const [users, setUsers] = useState<UserOption[]>([]);
   const [me, setMe] = useState<Me | null>(null);
   const [meError, setMeError] = useState<unknown>(null);
 
@@ -63,7 +63,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
       .catch((e) => {
         if (cancelled) return;
         setMeError(e);
-        // A stale/unknown email in localStorage: fall back to the default demo user.
+        // A stale/unknown email in localStorage: fall back to the default user.
         if (email !== DEFAULT_USER && (e as { status?: number }).status === 401) {
           setEmail(DEFAULT_USER);
         }

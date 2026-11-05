@@ -125,7 +125,7 @@ def ask(
             )
             mode = "llm"
         except LLMError as exc:
-            warnings.append(f"LLM unavailable ({exc}); showing offline evidence instead.")
+            warnings.append(f"The language model is unavailable ({exc}); showing evidence instead.")
     if payload is None:
         payload = _offline_answer(retrieval.chunks, customer, ctx)
 
@@ -237,7 +237,7 @@ def _offline_answer(
 
     if not cited and not any(c.status == "ok" for c in ctx.calls):
         return _abstain("No relevant documentation was found for this question.")
-    header = "Offline mode (no LLM configured): the most relevant evidence is below."
+    header = "The most relevant evidence from the knowledge base:"
     return AnswerPayload(
         answer="\n\n".join([header, *lines]),
         citations=cited,

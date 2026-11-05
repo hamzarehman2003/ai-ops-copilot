@@ -5,11 +5,12 @@
 
 export type Role = "admin" | "agent" | "viewer";
 
-export interface DemoUser {
+export interface UserOption {
   email: string;
   name: string;
   role: Role;
   workspace: string;
+  workspace_name: string;
 }
 
 export interface Me {
@@ -344,7 +345,7 @@ async function request<T>(
 // ---------- Endpoints ----------
 
 export const api = {
-  users: () => request<DemoUser[]>("/api/users"),
+  users: () => request<UserOption[]>("/api/users"),
   me: () => request<Me>("/api/me"),
   meta: () => request<Meta>("/api/meta"),
 

@@ -1,9 +1,42 @@
 "use client";
 
-import { useEffect, type ButtonHTMLAttributes, type HTMLAttributes, type ReactNode } from "react";
-import { errorMessage, ApiError } from "@/lib/api";
-import { Icon } from "./icons";
+/*
+ * App-level building blocks on top of the shadcn/ui primitives in components/ui/.
+ * Pages use these (PageHeader, Panel, StatTile, StatusBadge...) so the look stays consistent;
+ * for anything else they use the shadcn components directly.
+ */
 
+import type { ComponentProps, HTMLAttributes, ReactNode } from "react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge as ShadBadge } from "@/components/ui/badge";
+import { Button as ShadButton } from "@/components/ui/button";
+import {
+  Card as ShadCard,
+  CardAction,
+  CardContent,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs as ShadTabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { ApiError, errorMessage } from "@/lib/api";
+import { cn } from "@/lib/utils";
+import { Icon, type IconName } from "./icons";
+
+export { Skeleton };
+
+/** Kept for existing call sites; same as `cn` without tailwind-merge. */
 export function cx(...classes: (string | false | null | undefined)[]) {
   return classes.filter(Boolean).join(" ");
 }
@@ -12,52 +45,55 @@ export function cx(...classes: (string | false | null | undefined)[]) {
 
 type Variant = "primary" | "secondary" | "danger" | "ghost" | "success";
 
-const variants: Record<Variant, string> = {
-  primary:
-    "bg-ink text-paper border-ink hover:bg-ink-2 hover:border-ink-2 shadow-[inset_0_1px_0_rgb(255_255_255/0.08)]",
-  secondary: "bg-surface text-ink border-line-strong hover:border-ink-4 hover:bg-paper",
-  danger: "bg-surface text-bad border-line-strong hover:border-bad/40 hover:bg-bad-soft",
-  success: "bg-ok text-white border-ok hover:brightness-110",
-  ghost: "bg-transparent text-ink-2 border-transparent hover:bg-paper-2 hover:text-ink",
-};
+const VARIANTS = {
+  primary: "default",
+  secondary: "outline",
+  danger: "destructive",
+  ghost: "ghost",
+  success: "default",
+} as const;
 
 export function Button({
   variant = "secondary",
   size = "md",
   className,
   ...props
-}: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant; size?: "sm" | "md" }) {
+}: Omit<ComponentProps<typeof ShadButton>, "variant" | "size"> & {
+  variant?: Variant;
+  size?: "sm" | "md";
+}) {
   return (
-    <button
+    <ShadButton
       type="button"
       {...props}
-      className={cx(
-        "inline-flex items-center justify-center gap-1.5 rounded-lg border font-medium whitespace-nowrap",
-        "transition-[background-color,border-color,color,filter] duration-150",
-        "disabled:pointer-events-none disabled:opacity-45",
-        "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent",
-        size === "sm" ? "h-7 px-2.5 text-[12.5px]" : "h-9 px-3.5 text-[13.5px]",
-        variants[variant],
+      variant={VARIANTS[variant]}
+      size={size === "sm" ? "default" : "lg"}
+      className={cn(
+        size === "md" && "px-3.5",
+        variant === "primary" && "shadow-[inset_0_1px_0_rgb(255_255_255/0.14)]",
+        variant === "secondary" && "bg-card shadow-card",
+        variant === "success" && "bg-success text-white hover:bg-success/90",
         className,
       )}
     />
   );
 }
 
-// ---------- Badges ----------
+// ---------- Badges and status stamps ----------
 
 export type Tone = "gray" | "green" | "amber" | "red" | "blue" | "indigo" | "purple";
 
-const tones: Record<Tone, string> = {
-  gray: "bg-paper-2 text-ink-2",
-  green: "bg-ok-soft text-ok",
-  amber: "bg-warn-soft text-warn",
-  red: "bg-bad-soft text-bad",
-  blue: "bg-info-soft text-info",
-  indigo: "bg-accent-soft text-accent-ink",
-  purple: "bg-plum-soft text-plum",
+const TONES: Record<Tone, string> = {
+  gray: "border-border bg-muted text-muted-foreground",
+  green: "border-success/30 bg-success/10 text-success",
+  amber: "border-warning/35 bg-warning/10 text-warning",
+  red: "border-destructive/30 bg-destructive/8 text-destructive",
+  blue: "border-info/30 bg-info/10 text-info",
+  indigo: "border-primary/25 bg-primary/8 text-primary",
+  purple: "border-plum/30 bg-plum/10 text-plum",
 };
 
+/** Quiet metadata chip: "312 tokens", "p. 2", "v3". */
 export function Badge({
   tone = "gray",
   children,
@@ -70,16 +106,13 @@ export function Badge({
   title?: string;
 }) {
   return (
-    <span
+    <ShadBadge
+      variant="outline"
       title={title}
-      className={cx(
-        "inline-flex h-5 items-center gap-1 rounded-md px-1.5 text-[11.5px] leading-none font-medium whitespace-nowrap",
-        tones[tone],
-        className,
-      )}
+      className={cn("rounded-sm font-mono font-normal", TONES[tone], className)}
     >
       {children}
-    </span>
+    </ShadBadge>
   );
 }
 
@@ -115,33 +148,42 @@ const STATUS_TONES: Record<string, Tone> = {
   urgent: "red",
 };
 
-/** Status pill: a coloured dot plus the label, so state is never colour alone. */
+/** Small-caps status stamp: READY, PENDING, SUSPENDED. Text plus colour, never colour alone. */
 export function StatusBadge({ status, className }: { status: string; className?: string }) {
   const pulse = status === "processing" || status === "pending";
   return (
-    <Badge tone={STATUS_TONES[status] ?? "gray"} className={className}>
-      <span className={cx("h-1.5 w-1.5 rounded-full bg-current", pulse && "animate-pulse")} />
+    <ShadBadge
+      variant="outline"
+      className={cn(
+        "h-[22px] gap-1.5 rounded-sm px-2 text-[10.5px] tracking-[0.08em] uppercase",
+        TONES[STATUS_TONES[status] ?? "gray"],
+        className,
+      )}
+    >
+      {pulse && (
+        <span className="relative flex size-1.5">
+          <span className="absolute inline-flex size-full animate-ping rounded-full bg-current opacity-50" />
+          <span className="relative inline-flex size-1.5 rounded-full bg-current" />
+        </span>
+      )}
       {status.replace(/_/g, " ")}
-    </Badge>
+    </ShadBadge>
   );
 }
 
-// ---------- Layout bits ----------
+// ---------- Cards ----------
 
+/** A shadcn Card without its built-in padding, for containers that lay out their own content. */
 export function Card({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
-  return (
-    <div
-      {...props}
-      className={cx("rounded-xl border border-line bg-surface shadow-card", className)}
-    />
-  );
+  return <ShadCard {...props} className={cn("gap-0 py-0 shadow-card ring-0", className)} />;
 }
 
-/** Card with a titled header row. */
+/** Card with a header (eyebrow + title, optional actions) and an optional muted footer. */
 export function Panel({
   title,
   eyebrow,
   actions,
+  footer,
   children,
   className,
   bodyClassName,
@@ -150,19 +192,23 @@ export function Panel({
   title: ReactNode;
   eyebrow?: ReactNode;
   actions?: ReactNode;
+  footer?: ReactNode;
   bodyClassName?: string;
 }) {
   return (
-    <Card {...props} className={cx("flex flex-col", className)}>
-      <div className="flex items-start justify-between gap-3 px-5 pt-4 pb-3">
-        <div className="min-w-0">
-          {eyebrow && <div className="eyebrow mb-1">{eyebrow}</div>}
-          <h2 className="text-[14px] font-semibold tracking-[-0.01em] text-ink">{title}</h2>
-        </div>
-        {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
-      </div>
-      <div className={cx("flex-1 px-5 pb-5", bodyClassName)}>{children}</div>
-    </Card>
+    <ShadCard {...props} className={cn("shadow-card ring-0", className)}>
+      <CardHeader>
+        {eyebrow && <p className="eyebrow">{eyebrow}</p>}
+        <CardTitle className="text-[16px] font-semibold tracking-[-0.01em]">{title}</CardTitle>
+        {actions && <CardAction className="flex items-center gap-2">{actions}</CardAction>}
+      </CardHeader>
+      <CardContent className={cn("flex-1", bodyClassName)}>{children}</CardContent>
+      {footer && (
+        <CardFooter className="gap-2 border-t bg-muted/40 py-3 text-[13px] text-muted-foreground">
+          {footer}
+        </CardFooter>
+      )}
+    </ShadCard>
   );
 }
 
@@ -171,71 +217,100 @@ export function PageHeader({
   eyebrow,
   description,
   actions,
+  compact,
 }: {
   title: ReactNode;
   eyebrow?: ReactNode;
   description?: ReactNode;
   actions?: ReactNode;
+  /** One line: smaller title with the description beside it (pages where content should start high). */
+  compact?: boolean;
 }) {
+  if (compact) {
+    return (
+      <header className="mb-5 flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
+        <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
+          <h1 className="text-[1.375rem] leading-tight font-semibold tracking-[-0.02em]">{title}</h1>
+          {description && <p className="text-sm text-muted-foreground">{description}</p>}
+        </div>
+        {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
+      </header>
+    );
+  }
   return (
-    <header className="mb-8 flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
+    <header className="mb-8 flex flex-wrap items-end justify-between gap-x-6 gap-y-4 border-b pb-6">
       <div className="max-w-2xl min-w-0">
-        {eyebrow && <div className="eyebrow mb-2.5">{eyebrow}</div>}
-        <h1 className="font-display text-[2.35rem] leading-[1.05] tracking-[-0.015em] text-ink sm:text-[2.6rem]">
+        {eyebrow && <p className="eyebrow">{eyebrow}</p>}
+        <h1 className="mt-2 text-[1.875rem] leading-tight font-semibold tracking-[-0.025em]">
           {title}
         </h1>
         {description && (
-          <p className="mt-2.5 text-[14.5px] leading-relaxed text-ink-3">{description}</p>
+          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{description}</p>
         )}
       </div>
-      {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
+      {actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}
     </header>
   );
 }
 
-/** One headline number with a label and an optional footnote. */
+const VALUE_TONES = {
+  default: "text-foreground",
+  success: "text-success",
+  warning: "text-warning",
+  danger: "text-destructive",
+  accent: "text-primary",
+};
+
+/** A key number: small-caps label, a big figure, one quiet line underneath. */
 export function StatTile({
   label,
   value,
   unit,
   note,
-  accent,
+  tone = "default",
   loading,
+  className,
   ...props
-}: HTMLAttributes<HTMLDivElement> & {
+}: Omit<HTMLAttributes<HTMLDivElement>, "title"> & {
   label: ReactNode;
   value: ReactNode;
   unit?: ReactNode;
   note?: ReactNode;
-  accent?: boolean;
+  tone?: keyof typeof VALUE_TONES;
   loading?: boolean;
 }) {
   return (
-    <Card {...props} className={cx("relative overflow-hidden px-5 py-4", props.className)}>
-      {accent && <span className="absolute inset-y-0 left-0 w-[3px] bg-accent" aria-hidden />}
-      <div className="eyebrow">{label}</div>
+    <Card {...props} className={cn("p-5", className)}>
+      <p className="eyebrow">{label}</p>
       <div className="mt-3 flex items-baseline gap-1.5">
         {loading ? (
-          <span className="h-9 w-20 animate-pulse rounded-md bg-paper-2" />
+          <Skeleton className="h-8 w-20" />
         ) : (
-          <span className="font-display text-[2.6rem] leading-none tracking-[-0.02em] text-ink tabular-nums">
+          <span
+            className={cn(
+              "numeric text-[2rem] leading-none font-medium tracking-[-0.03em]",
+              VALUE_TONES[tone],
+            )}
+          >
             {value}
           </span>
         )}
-        {unit && !loading && <span className="text-[13px] text-ink-3">{unit}</span>}
+        {unit && !loading && <span className="text-[13px] text-muted-foreground">{unit}</span>}
       </div>
-      {note && <div className="mt-2.5 text-[12.5px] leading-snug text-ink-3">{note}</div>}
+      {note && <div className="mt-2.5 text-[13px] leading-snug text-muted-foreground">{note}</div>}
     </Card>
   );
 }
+
+// ---------- Feedback ----------
 
 export function Spinner({ className }: { className?: string }) {
   return (
     <span
       role="status"
       aria-label="Loading"
-      className={cx(
-        "inline-block h-4 w-4 animate-spin rounded-full border-[1.5px] border-line-strong border-t-ink",
+      className={cn(
+        "inline-block size-4 animate-spin rounded-full border-[1.5px] border-input border-t-primary",
         className,
       )}
     />
@@ -244,7 +319,7 @@ export function Spinner({ className }: { className?: string }) {
 
 export function Loading({ label = "Loading…" }: { label?: string }) {
   return (
-    <div className="flex items-center gap-2.5 px-1 py-8 text-[13px] text-ink-3">
+    <div className="flex items-center gap-2.5 px-1 py-8 text-[13px] text-muted-foreground">
       <Spinner /> {label}
     </div>
   );
@@ -262,54 +337,63 @@ export function ErrorBanner({ error, onDismiss }: { error: unknown; onDismiss?: 
           ? "Conflict"
           : status === 422
             ? "Invalid input"
-            : "Error";
+            : "Something went wrong";
   return (
-    <div
-      role="alert"
-      className="flex items-start justify-between gap-3 rounded-lg border border-bad/20 bg-bad-soft px-3.5 py-2.5 text-[13px] text-bad"
-    >
-      <div className="flex gap-2">
-        <Icon name="alert" className="mt-px h-4 w-4 shrink-0" />
-        <div>
-          <span className="font-semibold">
-            {label}
-            {status ? ` (${status})` : ""}
-          </span>{" "}
-          <span className="text-bad/90">{errorMessage(error)}</span>
-        </div>
-      </div>
+    <Alert variant="destructive" className="relative border-destructive/30 bg-destructive/5">
+      <Icon name="alert" />
+      <AlertTitle>
+        {label}
+        {status ? ` (${status})` : ""}
+      </AlertTitle>
+      <AlertDescription>{errorMessage(error)}</AlertDescription>
       {onDismiss && (
         <button
           type="button"
           onClick={onDismiss}
-          className="rounded p-0.5 text-bad/70 hover:bg-bad/10 hover:text-bad"
+          className="absolute top-2.5 right-2.5 rounded p-0.5 opacity-70 hover:opacity-100"
           aria-label="Dismiss"
         >
-          <Icon name="close" className="h-3.5 w-3.5" />
+          <Icon name="close" className="size-3.5" />
         </button>
       )}
-    </div>
+    </Alert>
   );
 }
 
-export function EmptyState({ title, children }: { title: string; children?: ReactNode }) {
+/** Nothing here yet: a line icon, one title, one line of help, one optional action. */
+export function EmptyState({
+  title,
+  icon = "inbox",
+  action,
+  children,
+  compact,
+}: {
+  title: string;
+  icon?: IconName;
+  action?: ReactNode;
+  children?: ReactNode;
+  /** Less padding, for use inside a card. */
+  compact?: boolean;
+}) {
   return (
-    <div className="rounded-xl border border-dashed border-line-strong bg-surface/60 px-6 py-12 text-center">
-      <p className="font-display text-[1.45rem] leading-tight text-ink">{title}</p>
-      {children && (
-        <div className="mx-auto mt-2 max-w-md text-[13.5px] leading-relaxed text-ink-3">
-          {children}
-        </div>
-      )}
-    </div>
+    <Empty className={cn("border border-dashed", compact ? "py-8" : "py-14")}>
+      <EmptyHeader>
+        <EmptyMedia variant="icon" className="rounded-full border bg-card shadow-card">
+          <Icon name={icon} strokeWidth={1.5} />
+        </EmptyMedia>
+        <EmptyTitle>{title}</EmptyTitle>
+        {children && <EmptyDescription>{children}</EmptyDescription>}
+      </EmptyHeader>
+      {action && <EmptyContent>{action}</EmptyContent>}
+    </Empty>
   );
 }
 
 export function JsonView({ value, className }: { value: unknown; className?: string }) {
   return (
     <pre
-      className={cx(
-        "max-h-80 overflow-auto rounded-lg bg-[#1d1c1a] p-3.5 font-mono text-[11.5px] leading-relaxed text-[#e9e6de]",
+      className={cn(
+        "max-h-80 overflow-auto rounded-lg bg-code p-3.5 font-mono text-[11.5px] leading-relaxed text-code-foreground",
         className,
       )}
     >
@@ -323,18 +407,18 @@ export function MeterBar({ value, label }: { value: number; label?: string }) {
   const pct = Math.max(0, Math.min(1, value)) * 100;
   return (
     <div className="flex items-center gap-2" title={label}>
-      <div className="h-1 w-16 overflow-hidden rounded-full bg-paper-2">
+      <div className="h-1 w-16 overflow-hidden rounded-full bg-muted">
         <div
-          className={cx("h-full rounded-full", pct >= 60 ? "bg-ink" : "bg-ink-4")}
+          className={cn("h-full rounded-full", pct >= 60 ? "bg-primary" : "bg-primary/40")}
           style={{ width: `${pct}%` }}
         />
       </div>
-      <span className="font-mono text-[11px] text-ink-3 tabular-nums">{Math.round(pct)}%</span>
+      <span className="numeric text-[11px] text-muted-foreground">{Math.round(pct)}%</span>
     </div>
   );
 }
 
-// ---------- Drawer ----------
+// ---------- Drawer (shadcn Sheet) ----------
 
 export function Drawer({
   open,
@@ -349,35 +433,20 @@ export function Drawer({
   children: ReactNode;
   wide?: boolean;
 }) {
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
-
-  if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex justify-end" role="dialog" aria-modal="true">
-      <div className="absolute inset-0 bg-ink/25 backdrop-blur-[2px]" onClick={onClose} />
-      <div
-        className={cx(
-          "relative flex h-full w-full animate-rise flex-col border-l border-line bg-paper shadow-pop",
-          wide ? "max-w-5xl" : "max-w-2xl",
-        )}
+    <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
+      <SheetContent
+        side="right"
+        className={cn("w-full gap-0 bg-background p-0", wide ? "sm:max-w-5xl" : "sm:max-w-2xl")}
       >
-        <div className="flex items-center justify-between gap-4 border-b border-line bg-surface px-6 py-4">
-          <h2 className="min-w-0 truncate font-display text-[1.6rem] leading-tight text-ink">
+        <SheetHeader className="border-b bg-card px-6 py-4">
+          <SheetTitle className="truncate pr-8 text-[17px] font-semibold tracking-[-0.01em]">
             {title}
-          </h2>
-          <Button variant="ghost" size="sm" onClick={onClose} aria-label="Close">
-            <Icon name="close" className="h-3.5 w-3.5" />
-            Close
-          </Button>
-        </div>
+          </SheetTitle>
+        </SheetHeader>
         <div className="flex-1 overflow-y-auto p-6">{children}</div>
-      </div>
-    </div>
+      </SheetContent>
+    </Sheet>
   );
 }
 
@@ -393,25 +462,19 @@ export function Tabs<T extends string>({
   options: { value: T; label: ReactNode }[];
 }) {
   return (
-    <div className="mb-5 flex gap-5 border-b border-line" role="tablist">
-      {options.map((o) => (
-        <button
-          key={o.value}
-          type="button"
-          role="tab"
-          aria-selected={value === o.value}
-          onClick={() => onChange(o.value)}
-          className={cx(
-            "-mb-px border-b-[1.5px] pt-1 pb-2.5 text-[13.5px] font-medium transition-colors",
-            value === o.value
-              ? "border-ink text-ink"
-              : "border-transparent text-ink-3 hover:text-ink",
-          )}
-        >
-          {o.label}
-        </button>
-      ))}
-    </div>
+    <ShadTabs value={value} onValueChange={(v) => onChange(v as T)} className="mb-5">
+      <TabsList variant="line" className="h-10 w-full justify-start gap-4 rounded-none border-b p-0">
+        {options.map((o) => (
+          <TabsTrigger
+            key={o.value}
+            value={o.value}
+            className="flex-none px-0.5 text-[14px] after:bottom-[-1px]!"
+          >
+            {o.label}
+          </TabsTrigger>
+        ))}
+      </TabsList>
+    </ShadTabs>
   );
 }
 
@@ -427,33 +490,31 @@ export function Segmented<T extends string>({
   label: string;
 }) {
   return (
-    <div
-      role="radiogroup"
+    <ToggleGroup
+      type="single"
+      variant="outline"
       aria-label={label}
-      className="inline-flex flex-wrap gap-0.5 rounded-lg border border-line bg-paper-2 p-0.5"
+      value={value}
+      onValueChange={(v) => v && onChange(v as T)}
+      className="bg-card shadow-card"
     >
       {options.map((o) => (
-        <button
+        <ToggleGroupItem
           key={o.value}
-          type="button"
-          role="radio"
-          aria-checked={value === o.value}
-          onClick={() => onChange(o.value)}
-          className={cx(
-            "h-8 rounded-md px-3 text-[12.5px] font-medium transition-all",
-            value === o.value
-              ? "bg-surface text-ink shadow-card ring-1 ring-line"
-              : "text-ink-3 hover:text-ink",
-          )}
+          value={o.value}
+          className="h-8 px-3 text-[13px] data-[state=on]:bg-primary/10 data-[state=on]:text-primary"
         >
           {o.label}
-        </button>
+        </ToggleGroupItem>
       ))}
-    </div>
+    </ToggleGroup>
   );
 }
 
-export const inputClass =
-  "w-full rounded-lg border border-line-strong bg-surface px-3 py-2 text-[13.5px] text-ink placeholder:text-ink-4 transition-[border-color,box-shadow] focus:border-ink-3 focus:ring-[3px] focus:ring-ink/[0.07] focus:outline-none disabled:bg-paper disabled:text-ink-3";
+// ---------- Forms ----------
 
-export const labelClass = "block text-[12px] font-medium text-ink-2";
+/** Classes matching the shadcn Input, for native elements we style ourselves. */
+export const inputClass =
+  "w-full min-w-0 rounded-md border border-input bg-card px-3 py-2 text-sm shadow-card transition-[color,box-shadow] outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30 disabled:pointer-events-none disabled:opacity-50";
+
+export const labelClass = "block text-[13px] font-medium text-foreground/80";

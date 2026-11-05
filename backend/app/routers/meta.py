@@ -26,8 +26,8 @@ def me(user: CurrentUser) -> dict:
 
 
 @router.get("/users")
-def demo_users(session: SessionDep) -> list[dict]:
-    """Demo only: lets the UI offer a "sign in as" switcher (there is no real auth yet)."""
+def list_users(session: SessionDep) -> list[dict]:
+    """Users the UI can switch between (stand-in until real auth replaces `get_current_user`)."""
     users = session.scalars(select(User).order_by(User.email))
     return [
         {
@@ -36,6 +36,7 @@ def demo_users(session: SessionDep) -> list[dict]:
             "name": u.name,
             "role": u.role,
             "workspace": u.workspace.slug,
+            "workspace_name": u.workspace.name,
         }
         for u in users
     ]

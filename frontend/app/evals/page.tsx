@@ -19,6 +19,7 @@ import {
   Panel,
   StatTile,
 } from "@/components/ui";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { api, ApiError, type EvalReport } from "@/lib/api";
 import { formatDate, formatMs, pct } from "@/lib/format";
 import { useAsync } from "@/lib/useAsync";
@@ -55,7 +56,7 @@ export default function EvalsPage() {
         <Loading />
       ) : notRun ? (
         <EmptyState title="No evaluation has been run yet">
-          Run <code className="font-mono text-ink-2">python evals/run_eval.py</code> from the repo
+          Run <code className="font-mono text-foreground/80">python evals/run_eval.py</code> from the repo
           root, then refresh this page.
         </EmptyState>
       ) : report.error ? (
@@ -87,10 +88,10 @@ function Report({ data }: { data: EvalReport }) {
 
   return (
     <div className="space-y-4" data-testid="eval-report">
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-[11.5px] text-ink-3">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-[11.5px] text-muted-foreground">
         {data.run_id != null && (
           <span>
-            run <span className="text-ink">{String(data.run_id)}</span>
+            run <span className="text-foreground">{String(data.run_id)}</span>
           </span>
         )}
         {typeof data.created_at === "string" && <span>{formatDate(data.created_at)}</span>}
@@ -99,12 +100,12 @@ function Report({ data }: { data: EvalReport }) {
       </div>
 
       {best && (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <StatTile
             label="Hit@1 · default mode"
             value={pct(best["hit@1"])}
             unit="%"
-            accent
+            tone="success"
             note={`Correct document ranked first, ${defaultMode}`}
           />
           <StatTile label="MRR" value={best.mrr.toFixed(3)} note="Mean reciprocal rank, 1.0 = always first" />
@@ -116,6 +117,7 @@ function Report({ data }: { data: EvalReport }) {
           />
           <StatTile
             label="Security incidents"
+            tone={incidents === 0 ? "success" : incidents ? "danger" : "default"}
             value={incidents ?? "—"}
             note="Leaks, injections followed, unapproved writes"
           />
@@ -130,7 +132,7 @@ function Report({ data }: { data: EvalReport }) {
           {modes ? (
             <>
               <ModeChart modes={modes as Record<string, ModeMetrics>} defaultMode={defaultMode} />
-              <div className="mt-6 border-t border-line pt-4">
+              <div className="mt-6 border-t pt-4">
                 <RetrievalComparison modes={modes} />
               </div>
             </>
@@ -168,10 +170,10 @@ function Report({ data }: { data: EvalReport }) {
                   {Object.entries(dataset.by_category).map(([name, count]) => (
                     <span
                       key={name}
-                      className="rounded-md border border-line bg-paper px-2 py-0.5 text-[12px] text-ink-2"
+                      className="rounded-sm border bg-muted/40 px-2 py-0.5 text-[12px] text-foreground/80"
                     >
                       {name.replace(/_/g, " ")}{" "}
-                      <span className="font-mono text-ink">{String(count)}</span>
+                      <span className="numeric text-foreground">{String(count)}</span>
                     </span>
                   ))}
                 </div>
@@ -184,11 +186,11 @@ function Report({ data }: { data: EvalReport }) {
       {failures && (
         <Panel eyebrow="Per-case misses" title={`Failures · ${failures.length}`}>
           {failures.length === 0 ? (
-            <p className="text-[13px] text-ok">No failing cases.</p>
+            <p className="text-[13px] text-success">No failing cases.</p>
           ) : failures.every(isRecord) ? (
-            <div className="max-h-[32rem] overflow-y-auto">
+            <ScrollArea className="max-h-[32rem] [&>[data-slot=scroll-area-viewport]]:max-h-[32rem] [&_[data-slot=scroll-area-viewport]>div]:block!">
               <RecordTable rows={failures} />
-            </div>
+            </ScrollArea>
           ) : (
             <ReportValue name="failures" value={failures} />
           )}
