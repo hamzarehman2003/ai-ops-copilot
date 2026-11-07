@@ -489,6 +489,7 @@ export const api = {
     request<Action>(`/api/actions/${id}/approve`, { method: "POST", json: body }),
   reject: (id: string, body: { note?: string | null }) =>
     request<Action>(`/api/actions/${id}/reject`, { method: "POST", json: body }),
+  retry: (id: string) => request<Action>(`/api/actions/${id}/retry`, { method: "POST" }),
 
   auditEvents: (limit = 100) => request<AuditEvent[]>("/api/audit-events", { query: { limit } }),
   latestEvaluation: () => request<EvalReport>("/api/evaluations/latest"),

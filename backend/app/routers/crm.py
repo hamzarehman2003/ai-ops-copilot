@@ -22,6 +22,7 @@ from app.tools.actions import (
     get_action_for_update,
     payload_value,
     reject_action,
+    retry_action,
 )
 from app.tools.crm import MockCrm
 
@@ -103,6 +104,21 @@ def reject(
     try:
         action = get_action_for_update(session, approver.workspace_id, action_id)
         action = reject_action(session, action, approver, note=body.note)
+    except ActionError as exc:
+        session.rollback()
+        raise HTTPException(exc.status_code, exc.detail) from exc
+    return _action_out(action)
+
+
+@router.post("/actions/{action_id}/retry")
+def retry(
+    action_id: uuid.UUID, approver: ApproverUser, session: SessionDep, settings: SettingsDep
+) -> ActionOut:
+    """Re-run a failed (or stuck approved) action with its original approval and idempotency
+    key; a write that already landed is not applied twice."""
+    try:
+        action = get_action_for_update(session, approver.workspace_id, action_id)
+        action = retry_action(session, action, approver, MockCrm(session, settings))
     except ActionError as exc:
         session.rollback()
         raise HTTPException(exc.status_code, exc.detail) from exc

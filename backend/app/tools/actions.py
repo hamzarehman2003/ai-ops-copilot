@@ -7,6 +7,7 @@ first; `execute_action` itself refuses anything not approved (CLAUDE.md rule 4).
 Every step writes an audit event.
 """
 
+import logging
 import re
 import time
 import uuid
@@ -18,6 +19,7 @@ from sqlalchemy.orm import Session
 from app.models import ActionStatus, AuditEvent, ProposedAction, Ticket, User
 from app.tools.crm import CrmError, MockCrm
 
+logger = logging.getLogger(__name__)
 TAG = re.compile(r"^[a-z0-9][a-z0-9_-]{1,39}$")
 TICKET_STATUSES = {"open", "pending", "solved"}
 ACTION_TYPES = ("add_ticket_note", "add_ticket_tag", "set_ticket_status")
@@ -156,6 +158,24 @@ def reject_action(
     return action
 
 
+def retry_action(
+    session: Session, action: ProposedAction, actor: User, crm: MockCrm
+) -> ProposedAction:
+    """Run an approved action again: after a failure, or when it is stuck in `approved`
+    (the process died between approval and execution). Safe to repeat: the CRM write uses the
+    action's idempotency key, so a write that already landed is replayed, not applied twice.
+    The original approval stands; a retry is not a new decision."""
+    if action.status not in (ActionStatus.FAILED, ActionStatus.APPROVED):
+        raise ActionError(409, f"Only failed or unexecuted approved actions can be retried "
+                          f"(this one is {action.status.value})")  # fmt: skip
+    previous_error = action.error
+    action.status = ActionStatus.APPROVED
+    action.error = None
+    _audit(session, action, actor, "action.retried", {"previous_error": previous_error})
+    session.commit()
+    return execute_action(session, action, actor, crm)
+
+
 def execute_action(
     session: Session, action: ProposedAction, actor: User, crm: MockCrm
 ) -> ProposedAction:
@@ -181,6 +201,13 @@ def execute_action(
                 continue
             action.status = ActionStatus.FAILED
             action.error = f"{exc.code}: {exc}"
+            _audit(session, action, actor, "action.failed", {"error": action.error})
+            break
+        except Exception as exc:  # a bug or a lost DB connection: never leave it stuck APPROVED
+            logger.exception("Executing action %s failed unexpectedly", action.id)
+            session.rollback()  # drop any half-applied write; the approval is already committed
+            action.status = ActionStatus.FAILED
+            action.error = f"UNEXPECTED: {type(exc).__name__}"
             _audit(session, action, actor, "action.failed", {"error": action.error})
             break
         else:

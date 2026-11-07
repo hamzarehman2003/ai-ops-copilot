@@ -130,7 +130,7 @@ from that user. Roles via `require_role`: admin = sources; admin/agent = approve
   `POST /api/copilot/messages/{id}/feedback`, `GET /api/copilot/messages/{id}/trace`,
   `GET /api/search?q=&mode=&k=` (retrieval only).
 - CRM/actions: `GET /api/customers`, `GET /api/customers/{id}/tickets`,
-  `GET /api/actions?status=`, `POST /api/actions/{id}/approve|reject`, `GET /api/audit-events`.
+  `GET /api/actions?status=`, `POST /api/actions/{id}/approve|reject|retry`, `GET /api/audit-events`.
 - Meta: `GET /api/me`, `GET /api/users`, `GET /api/meta`, `GET /api/evaluations/latest`.
 - Other workspaces' rows are always 404 (tenant condition inside the query).
 

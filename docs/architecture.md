@@ -77,7 +77,10 @@ the Next.js proxy doesn't gzip (and buffer) it.
 `pending → approved → executed | failed`, or `pending → rejected`. Approve/reject need role
 admin or agent (`require_role`), the row is locked `FOR UPDATE`, the executor refuses anything
 not approved, and the mock CRM applies writes idempotently (`crm_operations`). Every step writes
-an `audit_events` row.
+an `audit_events` row. Any execution error (not only CRM errors) ends in `failed`, never stuck
+in `approved`; `POST /api/actions/{id}/retry` re-runs a failed or stuck approved action with
+its original approval and idempotency key, so a write that already landed is replayed, not
+applied twice.
 
 ## Security rules and where they live
 

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { ActionDecision } from "@/components/actions/ActionDecision";
 import { ActionResult } from "@/components/actions/ActionResult";
+import { RetryAction } from "@/components/actions/RetryAction";
 import { ACTION_LABELS } from "@/components/copilot/ProposedActionCard";
 import { Icon } from "@/components/icons";
 import {
@@ -139,7 +140,10 @@ function ActionRow({ action, onDecided }: { action: Action; onDecided: (a: Actio
               onDecided={onDecided}
             />
           ) : (
-            <ActionResult action={action} />
+            <>
+              <ActionResult action={action} />
+              <RetryAction action={action} onDone={onDecided} />
+            </>
           )}
         </div>
       </div>

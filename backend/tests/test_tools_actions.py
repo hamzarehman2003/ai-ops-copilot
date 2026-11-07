@@ -19,6 +19,7 @@ from app.tools.actions import (
     execute_action,
     propose_action,
     reject_action,
+    retry_action,
 )
 from app.tools.crm import MockCrm
 from app.tools.registry import ToolContext, run_tool
@@ -220,4 +221,65 @@ def test_crm_failure_marks_action_failed(demo):
 
     assert action.status == ActionStatus.FAILED
     assert action.error.startswith("UNAVAILABLE")
+    assert notes(demo) == 0
+
+
+def test_a_failed_action_can_be_retried_once_the_crm_is_back(demo):
+    action = propose(demo)
+    agent = user(demo, "agent@tasklane.example")
+    approve_action(
+        demo, action, agent, MockCrm(demo, Settings(crm_fault="error", crm_max_retries=0))
+    )
+    assert action.status == ActionStatus.FAILED
+
+    retry_action(demo, action, agent, MockCrm(demo, Settings()))
+
+    assert action.status == ActionStatus.EXECUTED and action.error is None
+    assert notes(demo) == 1
+    events = demo.scalars(
+        select(AuditEvent.event_type)
+        .where(AuditEvent.entity_id == str(action.id))
+        .order_by(AuditEvent.created_at)
+    ).all()
+    assert events[-2:] == ["action.retried", "action.executed"]
+
+
+def test_retrying_an_action_whose_write_landed_does_not_write_twice(demo):
+    """Stuck in APPROVED (e.g. the process died after the CRM write): retry replays the key."""
+    action = propose(demo)
+    agent = user(demo, "agent@tasklane.example")
+    approve_action(demo, action, agent, MockCrm(demo, Settings()))
+    action.status = ActionStatus.APPROVED  # simulate: executed, but the status never saved
+    demo.flush()
+
+    retry_action(demo, action, agent, MockCrm(demo, Settings()))
+
+    assert action.status == ActionStatus.EXECUTED and action.result["replayed"] is True
+    assert notes(demo) == 1
+
+
+@pytest.mark.parametrize("decide", ["pending", "rejected", "executed"])
+def test_only_failed_or_stuck_actions_can_be_retried(demo, decide):
+    action = propose(demo)
+    agent = user(demo, "agent@tasklane.example")
+    if decide == "rejected":
+        reject_action(demo, action, agent)
+    elif decide == "executed":
+        approve_action(demo, action, agent, MockCrm(demo, Settings()))
+    with pytest.raises(ActionError, match="can be retried"):
+        retry_action(demo, action, agent, MockCrm(demo, Settings()))
+
+
+def test_an_unexpected_error_marks_the_action_failed_not_stuck(demo, monkeypatch):
+    action = propose(demo)
+
+    def broken(*args, **kwargs):
+        raise RuntimeError("bug")
+
+    crm = MockCrm(demo, Settings())
+    monkeypatch.setattr(crm, "apply", broken)
+    approve_action(demo, action, user(demo, "agent@tasklane.example"), crm)
+
+    assert action.status == ActionStatus.FAILED
+    assert action.error == "UNEXPECTED: RuntimeError"
     assert notes(demo) == 0
