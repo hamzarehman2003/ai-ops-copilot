@@ -181,10 +181,26 @@ One entry per decision. This is interview prep: be able to defend every line.
   `proposed_action`) via `output_config.format`; server-side `fallbacks: "default"` for safety
   refusals. Code validates citations and enforces "cite or abstain"; proposals are validated
   and stored as `pending`. Without an API key: offline mode (cited evidence, no generation).
-- **Eval evidence:** offline-mode runs only so far (`answers.mode = offline` in every report);
-  LLM-mode numbers come from `python evals/run_eval.py --llm` when a key is available.
+- **Eval evidence:** offline runs until 2026-11-07; first LLM-mode run `20261107T194616Z`
+  (local qwen3.5:9b, judge gemma4:12b): see the faithfulness entry.
 - **Known trade-offs / when I'd revisit:** effort `medium` not yet tuned; no prompt caching
   (prompt below the cacheable minimum).
+
+### Faithfulness: claim-level LLM judge, a different model than the answerer — 2026-11-07
+- **Choice:** `evals/judge.py` splits each non-abstained answer into atomic claims and marks
+  each supported or not by the context the model was given (chunks + tool results);
+  faithfulness = supported / claims, averaged. The judge sees only sources + answer, sources
+  are escaped and marked as data, and it runs after all answers (one model swap on a 12 GB
+  GPU). Answerer qwen3.5:9b, judge gemma4:12b (both local, free).
+- **Alternatives:** RAGAS (same idea, extra dependency and its own prompts); NLI model per
+  (sentence, chunk) pair (cheaper, weaker on paraphrase); a single "grounded? yes/no" judge
+  (hides partial hallucinations, not actionable).
+- **Eval evidence:** run `20261107T194616Z`: faithfulness 0.97 over 74 answers, 0 judge errors.
+  Unsupported claims are listed per case in the report (e.g. inferring "suspended" from a date
+  instead of a tool result).
+- **Known trade-offs / when I'd revisit:** the judge is a 12B model: some "unsupported" claims
+  are meta statements it shouldn't have extracted; spot-check failures, and calibrate against
+  ~30 human labels before trusting small differences.
 
 ### Follow-ups are searched with the previous question — 2026-11-07
 - **Choice:** in a conversation, retrieval searches `previous question + "\n" + question`

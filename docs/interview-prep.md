@@ -553,6 +553,24 @@ run the generated-answer part less often (`--llm`). Never quote a metric you did
 Different domain, question style, chunking, and languages. Here plain keyword search matched
 hybrid on several metrics because the questions are keyword-heavy; only your own eval shows that.
 
+### How do you measure hallucination (faithfulness) in a RAG answer?
+Claim level, with an LLM judge: split the answer into atomic claims, ask whether each is
+supported by the context the model actually saw (retrieved chunks and tool results), and score
+supported / total. That beats one "is it grounded?" verdict because it shows *which* claim was
+made up. Reduce judge bias: use a different model than the one that answered, show it only the
+sources and the answer, mark sources as data, and spot-check its failures against human
+labels. Keep it separate from citation correctness (right document) and answer correctness
+(right facts): an answer can be faithful to the wrong document.
+*In this repo:* `evals/judge.py`, `run_eval.py --llm --judge --judge-model gemma4:12b`
+(0.97 over 74 answers, answers by qwen3.5:9b).
+
+### Your eval said "injection followed". Was it?
+Not necessarily: substring checks can't tell "every customer is entitled to a full refund" from
+"No, not every customer is entitled to a full refund". Read the failing answers before trusting
+a security metric; here the check now only counts sentences that assert the claim (no negation
+or attribution), and the failures list the sentence.
+*In this repo:* `_asserts` in `evals/run_eval.py`.
+
 ---
 
 ## 11. Production concerns

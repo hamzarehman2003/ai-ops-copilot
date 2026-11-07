@@ -97,3 +97,37 @@ jobs:
           test "$(docker run --rm --entrypoint id ops-copilot-api -u)" != "0"
       - name: Frontend image
         run: docker build -t ops-copilot-web frontend
+
+  e2e:
+    name: End-to-end (Docker Compose + Playwright, offline mode)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: [backend, frontend]
+    steps:
+      - uses: actions/checkout@v7
+      - name: Start the stack (no LLM key: the copilot runs in offline mode)
+        run: |
+          cp .env.example .env
+          docker compose up -d --build --wait --wait-timeout 600
+      - name: Seed and index the demo data
+        run: |
+          docker compose exec -T api python -m scripts.seed
+          docker compose exec -T api python -m scripts.upload_demo_docs
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install Playwright
+        working-directory: frontend
+        run: |
+          npm ci --no-audit --no-fund
+          npx playwright install --with-deps chromium
+      - name: Smoke tests
+        working-directory: frontend
+        run: npx playwright test
+        env:
+          PW_NO_SERVER: 1
+      - name: API logs on failure
+        if: failure()
+        run: docker compose logs --tail 80 api
