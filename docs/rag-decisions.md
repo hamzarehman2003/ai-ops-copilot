@@ -186,6 +186,22 @@ One entry per decision. This is interview prep: be able to defend every line.
 - **Known trade-offs / when I'd revisit:** effort `medium` not yet tuned; no prompt caching
   (prompt below the cacheable minimum).
 
+### Follow-ups are searched with the previous question — 2026-11-07
+- **Choice:** in a conversation, retrieval searches `previous question + "\n" + question`
+  (`retrieval/query.py`, setting `retrieval_follow_up_context`); the model still sees the
+  user's exact question. `[S#]`/`[T#]` markers are removed from history (ids are per turn,
+  and the model was copying stale ones).
+- **Alternatives:** LLM query rewrite into a standalone question (better with pronouns and
+  topic switches, but +1 model call per follow-up and nothing in offline mode); retrieving
+  separately for both and fusing (more candidates to rerank).
+- **Eval evidence:** 8 new `follow_up` cases (f01–f08), offline, legacy FAQ deprecated.
+  Off (`--out` scratch run `20261107T184204Z`): follow-up MRR 0.81 (f04 missed entirely);
+  on (`20261107T184530Z`): follow-up MRR 1.00; all 103 cases: hybrid_rerank MRR
+  0.942 → 0.962, hit@1 0.91 → 0.94.
+- **Known trade-offs / when I'd revisit:** a topic switch ("what about SSO?" after a refund
+  question) still drags the old topic into the search; the reranker usually sorts it out, but
+  an LLM rewrite is the fix if multi-turn cases show it.
+
 ### Tool results are citable sources ([T#]); no "any tool call" pass — 2026-11-07
 - **Choice:** each successful tool result gets a `source_id` (`T1`, `T2`...) in what the model
   sees; answers cite it like a document. "Cite or abstain" now requires at least one valid

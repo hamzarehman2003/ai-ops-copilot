@@ -413,6 +413,16 @@ for multi-source questions (what fraction of the needed documents were found?), 
 task-specific one here: how often an outdated document ranks first.
 *In this repo:* `_eval_retrieval` in `evals/run_eval.py`.
 
+### How do you handle follow-up questions in a RAG chat?
+A follow-up ("and on Enterprise?") is elliptical: retrieving on it alone finds nothing or the
+wrong thing. Options, cheapest first: prepend the previous question to the search text;
+retrieve for both and fuse; or have an LLM rewrite the conversation into one standalone
+question (best with pronouns and topic switches, costs a model call). Two more traps: source
+ids like [S2] are per turn, so strip them from history or the model reuses stale ones; and
+eval it with multi-turn cases, because single-turn evals can't see the problem.
+*In this repo:* `retrieval/query.py`, `_conversation` in `copilot.py`, `follow_up` cases in
+`evals/cases.jsonl` (follow-up MRR 0.81 → 1.00).
+
 ---
 
 ## 8. Generation (grounded answers)
@@ -533,7 +543,7 @@ Separately: retrieval (hit@k, MRR, recall) on labeled questions; answers (absten
 citation coverage and correctness, required/forbidden facts); safety (tenant leaks, unauthorized
 tool calls/actions, injection-following); tools (success rate, latency, fault handling). Keep a
 versioned dataset, record model/prompt/index versions per run, compare before/after each change.
-*In this repo:* `evals/cases.jsonl` (95 cases), `evals/run_eval.py`, `evals/results/`.
+*In this repo:* `evals/cases.jsonl` (103 cases), `evals/run_eval.py`, `evals/results/`.
 
 ### How do you evaluate without paying for an LLM every time?
 Most of the signal is retrieval and policy checks, which need no LLM. Run those on every change;

@@ -53,26 +53,28 @@ step live (search → account tools → model rounds → checks).
 
 ## Evaluation results
 
-Offline answer mode (no LLM), 95 cases, 73 scored for retrieval, k = 5, laptop CPU.
+Offline answer mode (no LLM), 103 cases, 78 scored for retrieval, k = 5, laptop CPU.
 Reports: `evals/results/`. Reproduce: `docker compose exec api python /evals/run_eval.py
 --deprecate legacy-pricing-faq-2024.md`.
 
-| Retrieval (legacy FAQ deprecated, run `20261104T135019Z`) | hit@1 | hit@3 | MRR |
+| Retrieval (legacy FAQ deprecated, run `20261107T184530Z`) | hit@1 | hit@3 | MRR |
 |---|---|---|---|
-| dense (bge-small) | 0.89 | 0.97 | 0.93 |
-| lexical (Postgres FTS) | 0.86 | 0.97 | 0.91 |
-| hybrid (RRF) | 0.89 | 0.96 | 0.93 |
-| **hybrid + rerank** (default) | **0.93** | **0.97** | **0.96** |
+| dense (bge-small) | 0.88 | 0.96 | 0.92 |
+| lexical (Postgres FTS) | 0.86 | 0.97 | 0.92 |
+| hybrid (RRF) | 0.88 | 0.95 | 0.92 |
+| **hybrid + rerank** (default) | **0.94** | **0.97** | **0.96** |
 
 - Deprecating the outdated FAQ: hybrid+rerank hit@1 0.84 → 0.93, outdated source ranked first
   in conflict questions 50% → 0% (runs `20261104T133018Z` → `20261104T133918Z`).
+- Follow-up questions ("And on Enterprise?") are searched together with the previous question:
+  follow-up MRR 0.81 → 1.00 on the 8 multi-turn cases.
 - Security checks: 0 cross-tenant leaks, 0 tool calls outside the selected customer, 0 actions
   executed without approval, 3/3 HTTP role/tenant checks enforced, 0 injections followed.
 - Tool faults (timeout, 503, malformed response): 3/3 handled without inventing account facts.
 - Offline abstention accuracy 0.64 (9/14): a score threshold can't tell "on-topic but not in the
   docs" apart; that's the LLM's job. LLM-mode numbers: run with `--llm` (not yet recorded).
-- Retrieval latency p50 ≈ 2.2 s on CPU, mostly the cross-encoder (top 10 instead of 20:
-  1.3 s, hit@3 0.97 → 0.94).
+- Retrieval latency p50 ≈ 1.0 s on CPU (p95 1.25 s), mostly the cross-encoder; reranking the
+  top 10 instead of 20 is faster but cost hit@3 0.97 → 0.94 in an earlier run.
 
 Design decisions with evidence: [docs/rag-decisions.md](docs/rag-decisions.md).
 Architecture: [docs/architecture.md](docs/architecture.md).

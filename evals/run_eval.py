@@ -55,11 +55,14 @@ from app.models import (  # noqa: E402
     SourceDocument,
     User,
 )
+from app.retrieval.query import search_query  # noqa: E402
 from app.retrieval.search import MODES, retrieve  # noqa: E402
 from app.tools.actions import propose_action  # noqa: E402
 
 DEFAULT_USER = "agent@tasklane.example"
-RETRIEVAL_CATEGORIES = {"single_source", "paraphrase", "multi_source", "conflict", "account"}
+RETRIEVAL_CATEGORIES = {
+    "single_source", "paraphrase", "multi_source", "conflict", "account", "follow_up",
+}  # fmt: skip
 
 
 def main() -> int:
@@ -169,6 +172,7 @@ def run(session: Session, settings: Settings, cases: list[dict], k: int, llm) ->
                 "rrf_k": settings.rrf_k,
                 "rerank_top_n": settings.rerank_top_n,
                 "min_rerank_score": settings.min_rerank_score,
+                "follow_up_context": settings.retrieval_follow_up_context,
             },
             "index": index,
         },
@@ -198,10 +202,11 @@ def _eval_retrieval(session, settings, cases, user, k, failures) -> dict:
     for mode in MODES:
         hits = {1: 0, 3: 0, 5: 0}
         reciprocal_ranks, multi_recalls, outdated_first = [], [], []
+        by_category: dict[str, list[float]] = {}
         for case in scored:
             result = retrieve(
-                session, user.workspace_id, case["question"], settings, mode=mode, k=k,
-                apply_threshold=False, save_trace=False,
+                session, user.workspace_id, _search_text(settings, case), settings, mode=mode,
+                k=k, apply_threshold=False, save_trace=False,
             )  # fmt: skip
             if mode == "hybrid_rerank":
                 retrieval_latency.append(result.latency_ms)
@@ -211,6 +216,7 @@ def _eval_retrieval(session, settings, cases, user, k, failures) -> dict:
             for n in hits:
                 hits[n] += first is not None and first <= n
             reciprocal_ranks.append(1 / first if first else 0.0)
+            by_category.setdefault(case["category"], []).append(1 / first if first else 0.0)
             if case["category"] == "multi_source":
                 multi_recalls.append(len(expected & set(files[:5])) / len(expected))
             if outdated := case.get("outdated_file"):
@@ -229,6 +235,7 @@ def _eval_retrieval(session, settings, cases, user, k, failures) -> dict:
             "mrr": sum(reciprocal_ranks) / n,
             "multi_source_recall@5": _mean(multi_recalls),
             "outdated_ranked_first": _mean(outdated_first),
+            "mrr_by_category": {cat: _mean(rr) for cat, rr in sorted(by_category.items())},
         }
         for case in tenant_checks:
             result = retrieve(
@@ -243,6 +250,13 @@ def _eval_retrieval(session, settings, cases, user, k, failures) -> dict:
         "latency_ms_p95": _pct(retrieval_latency, 95),
         "_leaks": leaks,
     }
+
+
+def _search_text(settings: Settings, case: dict) -> str:
+    """What the copilot would search for (follow-ups include the previous question)."""
+    if settings.retrieval_follow_up_context:
+        return search_query(case["question"], case.get("history", []))
+    return case["question"]
 
 
 def _count_leaks(session, workspace_id, chunks, case) -> int:
@@ -275,8 +289,16 @@ def _eval_answers(session, settings, cases, users, llm, failures, rows):
         if fault := case.get("crm_fault"):
             case_settings = settings.model_copy(update={"crm_fault": fault, "crm_max_retries": 1})
 
+        conversation_id = None  # follow-up cases: replay the earlier turns first
+        for earlier in case.get("history", []):
+            conversation_id = ask(
+                session, case_settings, user, earlier, customer=customer, llm=llm
+            ).conversation.id
         started = time.perf_counter()
-        run = ask(session, case_settings, user, case["question"], customer=customer, llm=llm)
+        run = ask(
+            session, case_settings, user, case["question"], customer=customer, llm=llm,
+            conversation_id=conversation_id,
+        )  # fmt: skip
         answer_latency.append(int((time.perf_counter() - started) * 1000))
 
         text = run.payload.answer.lower()

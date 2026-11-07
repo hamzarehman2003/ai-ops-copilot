@@ -306,6 +306,44 @@ def test_follow_up_keeps_history_but_not_across_customers(indexed):
     assert len(other.requests[0]["messages"]) == 1
 
 
+def test_a_follow_up_is_searched_with_the_previous_question(indexed):
+    first = ask(
+        indexed.session,
+        indexed.settings,
+        agent(indexed),
+        "What is the API rate limit on the Pro plan?",
+        llm=FakeLLM(answer("300 requests per minute [S1].", ["S1"])),
+    )
+    llm = FakeLLM(answer("1,000 requests per minute [S1].", ["S1"]))
+    run = ask(
+        indexed.session,
+        indexed.settings,
+        agent(indexed),
+        "And on Enterprise?",
+        conversation_id=first.conversation.id,
+        llm=llm,
+    )
+    # Searched alone, "And on Enterprise?" misses the rate-limit doc; with context it's first.
+    assert run.retrieval.chunks[0].filename == "api-rate-limits.txt"
+    # The model sees the user's own question, and history without stale source markers.
+    assert llm.requests[0]["messages"][1]["content"] == "300 requests per minute."
+    assert "<question>And on Enterprise?</question>" in llm.requests[0]["messages"][-1]["content"]
+
+
+def test_follow_up_context_can_be_switched_off(indexed):
+    question = "What is the API rate limit on the Pro plan?"
+    first = ask(indexed.session, indexed.settings, agent(indexed), question)
+    settings = indexed.settings.model_copy(update={"retrieval_follow_up_context": False})
+    run = ask(
+        indexed.session,
+        settings,
+        agent(indexed),
+        "And on Enterprise?",
+        conversation_id=first.conversation.id,
+    )
+    assert "api-rate-limits.txt" not in [c.filename for c in run.retrieval.chunks[:1]]
+
+
 # --- HTTP API --------------------------------------------------------------------------------
 
 

@@ -34,6 +34,7 @@ from app.generation.prompts import (
     tool_source_id,
 )
 from app.models import Conversation, Customer, Message, ToolCall, ToolCallStatus, User
+from app.retrieval.query import search_query
 from app.retrieval.reranker import relevance
 from app.retrieval.search import RetrievalResult, RetrievedChunk, retrieve
 from app.tools.actions import ActionError, payload_value, propose_action
@@ -114,8 +115,10 @@ def ask(
     session.flush()  # ids for traces / tool calls
 
     emit({"step": "retrieving"})
+    previous = [m["content"] for m in history if m["role"] == "user"]
+    query = search_query(question, previous) if settings.retrieval_follow_up_context else question
     retrieval = retrieve(
-        session, workspace_id, question, settings, mode=retrieval_mode, message_id=message.id
+        session, workspace_id, query, settings, mode=retrieval_mode, message_id=message.id
     )
     emit(
         {
@@ -370,8 +373,12 @@ def _conversation(
                 .order_by(Message.seq.desc())
                 .limit(HISTORY_MESSAGES)
             ).all()
+            # Source ids are per turn: [S2] in an old answer is a different chunk now, so
+            # markers are dropped from history to stop the model reusing them.
             history = [
-                {"role": m.role, "content": m.content} for m in reversed(previous) if m.content
+                {"role": m.role, "content": _without_markers(m.content)}
+                for m in reversed(previous)
+                if m.content
             ]
             return conversation, _well_formed(history)
 
@@ -390,6 +397,11 @@ def _well_formed(history: list[dict]) -> list[dict]:
     while history and history[-1]["role"] != "assistant":
         history.pop()
     return history
+
+
+def _without_markers(text: str) -> str:
+    text = re.sub(r"[ \t]*" + CITATION.pattern, "", text)
+    return re.sub(r"[ \t]+([.,;:!?])", r"\1", text)
 
 
 def _snippet(text: str, limit: int) -> str:

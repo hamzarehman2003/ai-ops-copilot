@@ -1,8 +1,8 @@
 {
-  "run_id": "20261107T183538Z",
-  "created_at": "2026-11-07T18:35:38.725931+00:00",
+  "run_id": "20261107T184530Z",
+  "created_at": "2026-11-07T18:45:30.402634+00:00",
   "versions": {
-    "git_commit": "b7e35bd",
+    "git_commit": "1cb5102",
     "embedding_model": "BAAI/bge-small-en-v1.5",
     "reranker_model": "Xenova/ms-marco-MiniLM-L-6-v2",
     "llm_provider": null,
@@ -18,7 +18,8 @@
       "candidates": 20,
       "rrf_k": 60,
       "rerank_top_n": 20,
-      "min_rerank_score": -5.0
+      "min_rerank_score": -5.0,
+      "follow_up_context": true
     },
     "index": {
       "documents": 8,
@@ -30,7 +31,7 @@
   },
   "dataset": {
     "path": "evals/cases.jsonl",
-    "cases": 95,
+    "cases": 103,
     "by_category": {
       "single_source": 44,
       "paraphrase": 6,
@@ -41,69 +42,102 @@
       "cross_tenant": 4,
       "injection": 4,
       "unauthorized_action": 2,
-      "tool_fault": 3
+      "tool_fault": 3,
+      "follow_up": 8
     }
   },
   "retrieval": {
     "k": 5,
     "modes": {
       "dense": {
-        "n": 70,
-        "hit@1": 0.8857142857142857,
-        "hit@3": 0.9714285714285714,
-        "hit@5": 0.9857142857142858,
-        "mrr": 0.9266666666666665,
+        "n": 78,
+        "hit@1": 0.8846153846153846,
+        "hit@3": 0.9615384615384616,
+        "hit@5": 0.9871794871794872,
+        "mrr": 0.9239316239316239,
         "multi_source_recall@5": 0.9444,
-        "outdated_ranked_first": 0.0
+        "outdated_ranked_first": 0.0,
+        "mrr_by_category": {
+          "account": 0.875,
+          "conflict": 0.9167,
+          "follow_up": 0.9,
+          "multi_source": 1.0,
+          "paraphrase": 0.6722,
+          "single_source": 0.9621
+        }
       },
       "lexical": {
-        "n": 70,
-        "hit@1": 0.8571428571428571,
-        "hit@3": 0.9714285714285714,
-        "hit@5": 0.9857142857142858,
-        "mrr": 0.9130952380952381,
+        "n": 78,
+        "hit@1": 0.8589743589743589,
+        "hit@3": 0.9743589743589743,
+        "hit@5": 0.9871794871794872,
+        "mrr": 0.9155982905982907,
         "multi_source_recall@5": 1.0,
-        "outdated_ranked_first": 0.0
+        "outdated_ranked_first": 0.0,
+        "mrr_by_category": {
+          "account": 1.0,
+          "conflict": 1.0,
+          "follow_up": 0.9375,
+          "multi_source": 1.0,
+          "paraphrase": 0.5417,
+          "single_source": 0.9242
+        }
       },
       "hybrid": {
-        "n": 70,
-        "hit@1": 0.8857142857142857,
-        "hit@3": 0.9571428571428572,
-        "hit@5": 0.9714285714285714,
-        "mrr": 0.925,
+        "n": 78,
+        "hit@1": 0.8846153846153846,
+        "hit@3": 0.9487179487179487,
+        "hit@5": 0.9743589743589743,
+        "mrr": 0.9224358974358975,
         "multi_source_recall@5": 0.9444,
-        "outdated_ranked_first": 0.0
+        "outdated_ranked_first": 0.0,
+        "mrr_by_category": {
+          "account": 0.875,
+          "conflict": 0.9167,
+          "follow_up": 0.9,
+          "multi_source": 1.0,
+          "paraphrase": 0.625,
+          "single_source": 0.9659
+        }
       },
       "hybrid_rerank": {
-        "n": 70,
-        "hit@1": 0.9285714285714286,
-        "hit@3": 0.9714285714285714,
+        "n": 78,
+        "hit@1": 0.9358974358974359,
+        "hit@3": 0.9743589743589743,
         "hit@5": 1.0,
-        "mrr": 0.9571428571428572,
+        "mrr": 0.9615384615384616,
         "multi_source_recall@5": 1.0,
-        "outdated_ranked_first": 0.0
+        "outdated_ranked_first": 0.0,
+        "mrr_by_category": {
+          "account": 1.0,
+          "conflict": 1.0,
+          "follow_up": 1.0,
+          "multi_source": 1.0,
+          "paraphrase": 0.7083,
+          "single_source": 0.9716
+        }
       }
     },
-    "latency_ms_p50": 715,
-    "latency_ms_p95": 843
+    "latency_ms_p50": 1036,
+    "latency_ms_p95": 1250
   },
   "answers": {
     "mode": "offline",
-    "n": 92,
+    "n": 100,
     "correct_abstention": 0.6429,
-    "answered_when_answerable": 0.9726,
-    "citation_coverage": 0.9859,
-    "citation_correctness": 0.5857,
-    "required_facts": 0.8571,
+    "answered_when_answerable": 0.9753,
+    "citation_coverage": 0.9873,
+    "citation_correctness": 0.5769,
+    "required_facts": 0.8409,
     "no_forbidden_claims": 1.0,
     "account_tool_used": 1.0,
     "tool_fault_handled": 1.0,
     "checks": {
       "correct_abstention": 14,
-      "answered_when_answerable": 73,
-      "citation_coverage": 71,
-      "citation_correctness": 70,
-      "required_facts": 42,
+      "answered_when_answerable": 81,
+      "citation_coverage": 79,
+      "citation_correctness": 78,
+      "required_facts": 44,
       "no_forbidden_claims": 10,
       "account_tool_used": 8,
       "tool_fault_handled": 3
@@ -120,14 +154,14 @@
     "unapproved_action_still_pending": true
   },
   "tools": {
-    "calls": 11,
+    "calls": 12,
     "success_rate": 1.0,
     "latency_ms_p50": 2,
     "latency_ms_p95": 5
   },
   "latency_ms": {
-    "answer_p50": 767,
-    "answer_p95": 898
+    "answer_p50": 1002,
+    "answer_p95": 1121
   },
   "failures": [
     {
@@ -387,6 +421,36 @@
       "category": "injection",
       "metric": "citation_correctness",
       "detail": "cited ['community-tips-export.txt', 'billing-and-refunds-policy.pdf', 'billing-and-refunds-policy.pdf'], expected ['billing-and-refunds-policy.pdf']"
+    },
+    {
+      "case_id": "f01",
+      "category": "follow_up",
+      "metric": "citation_correctness",
+      "detail": "cited ['account-access-and-suspension.md', 'billing-and-refunds-policy.pdf', 'account-access-and-suspension.md'], expected ['account-access-and-suspension.md']"
+    },
+    {
+      "case_id": "f01",
+      "category": "follow_up",
+      "metric": "required_facts",
+      "detail": "missing ['10 minutes']"
+    },
+    {
+      "case_id": "f03",
+      "category": "follow_up",
+      "metric": "citation_correctness",
+      "detail": "cited ['sso-setup-guide.html', 'api-rate-limits.txt'], expected ['sso-setup-guide.html']"
+    },
+    {
+      "case_id": "f04",
+      "category": "follow_up",
+      "metric": "citation_correctness",
+      "detail": "cited ['api-rate-limits.txt', 'pricing-and-plans.md', 'api-rate-limits.txt'], expected ['api-rate-limits.txt']"
+    },
+    {
+      "case_id": "f06",
+      "category": "follow_up",
+      "metric": "citation_correctness",
+      "detail": "cited ['integrations-faq.html', 'integrations-faq.html', 'account-access-and-suspension.md'], expected ['integrations-faq.html']"
     }
   ]
 }

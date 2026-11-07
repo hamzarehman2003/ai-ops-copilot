@@ -27,6 +27,8 @@ class Settings(BaseSettings):
     rrf_k: int = 60  # Reciprocal Rank Fusion constant
     rerank_top_n: int = 20  # only the best N fused candidates go through the cross-encoder
     min_rerank_score: float = -5.0  # below: "not relevant" (see rag-decisions.md)
+    # Follow-ups are searched together with the previous question (retrieval/query.py).
+    retrieval_follow_up_context: bool = True
 
     # LLM. Without an API key the copilot runs in "offline" mode (extractive, no generation).
     # llm_provider: "anthropic" (Messages API) or "openai" = any OpenAI-compatible Chat

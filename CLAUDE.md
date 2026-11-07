@@ -56,7 +56,7 @@ frontend/                 Next.js dashboard: Overview (/), Copilot, Sources, Sea
                           variables (deep teal, light + dark) in app/globals.css; app-level wrappers
                           (PageHeader, Panel, StatTile, StatusBadge...) in components/ui.tsx;
                           Playwright smoke tests in tests/
-evals/                    cases.jsonl (95 cases) + run_eval.py + results/ (source of truth for metrics)
+evals/                    cases.jsonl (103 cases) + run_eval.py + results/ (source of truth for metrics)
 data/demo_docs/           synthetic docs; see data/README.md for what each file tests
 data/acme_docs/           a second tenant's private doc (cross-tenant leak tests)
 infra/db/init.sql         enables pgvector on a fresh DB volume
