@@ -590,3 +590,62 @@ def test_another_workspaces_objects_are_404_on_every_route(client, acme_ids, met
         json=body,
     )
     assert response.status_code == 404, response.text
+
+
+# --- Second-chance retrieval for weak searches ----------------------------------------------
+
+
+def with_rewrite(indexed):
+    return indexed.settings.model_copy(update={"query_rewrite": True})
+
+
+def test_a_weak_search_is_retried_with_rewritten_queries(indexed):
+    """No word overlap with the docs: the first search finds nothing relevant; the rewrite
+    (in documentation terms) finds the refund policy, and the answer can cite it."""
+    llm = FakeLLM(
+        {"queries": ["refund policy annual plan", "refund window after purchase"]},
+        answer("Annual Pro plans can be refunded within 14 days [S1].", ["S1"]),
+    )
+    events = []
+    run = ask(
+        indexed.session,
+        with_rewrite(indexed),
+        agent(indexed),
+        "Can I get my cash returned for the yearly thing?",
+        llm=llm,
+        on_progress=events.append,
+    )
+    assert "rewriting" in [e["step"] for e in events]
+    assert run.retrieval.chunks[0].filename == "billing-and-refunds-policy.pdf"
+    assert run.message.data["rewritten_queries"] == [
+        "refund policy annual plan",
+        "refund window after purchase",
+    ]
+    assert not run.payload.abstained and run.payload.citations == ["S1"]
+    # The model still answers the user's own question.
+    assert "cash returned" in llm.requests[1]["messages"][-1]["content"]
+
+
+def test_a_strong_search_is_not_rewritten(indexed):
+    llm = FakeLLM(answer("The SAML assertion signature is invalid [S1].", ["S1"]))
+    run = ask(
+        indexed.session,
+        with_rewrite(indexed),
+        agent(indexed),
+        "What does error SSO-401 mean?",
+        llm=llm,
+    )
+    assert len(llm.requests) == 1  # no rewrite call
+    assert run.message.data["rewritten_queries"] == []
+
+
+def test_a_failed_rewrite_keeps_the_first_search(indexed):
+    llm = FakeLLM(LLMError("timeout"), answer("x", abstained=True))
+    run = ask(
+        indexed.session,
+        with_rewrite(indexed),
+        agent(indexed),
+        "Can I get my cash returned for the yearly thing?",
+        llm=llm,
+    )
+    assert run.mode == "llm" and run.message.data["rewritten_queries"] == []

@@ -33,6 +33,7 @@ from app.generation.prompts import (
     source_id,
     tool_source_id,
 )
+from app.generation.query_rewrite import is_weak, merge, rewrite_queries
 from app.models import Conversation, Customer, Message, ToolCall, ToolCallStatus, User
 from app.retrieval.query import search_query
 from app.retrieval.reranker import relevance
@@ -126,14 +127,21 @@ def ask(
     retrieval = retrieve(
         session, workspace_id, query, settings, mode=retrieval_mode, message_id=message.id
     )
-    emit(
-        {
-            "step": "retrieved",
-            "count": len(retrieval.chunks),
-            "documents": list(dict.fromkeys(c.document_title for c in retrieval.chunks)),
-            "latency_ms": retrieval.latency_ms,
-        }
-    )
+    emit(_retrieved_event(retrieval))
+    if (
+        llm is not None
+        and settings.query_rewrite
+        and is_weak(retrieval, settings.query_rewrite_below_score)
+    ):
+        # Weak search (often a paraphrase): retry in the documentation's vocabulary.
+        if rewrites := rewrite_queries(llm, query):
+            emit({"step": "rewriting", "queries": rewrites})
+            extra = [
+                retrieve(session, workspace_id, q, settings, mode=retrieval_mode, save_trace=False)
+                for q in rewrites
+            ]
+            retrieval = merge(retrieval, extra, settings.retrieval_k)
+            emit(_retrieved_event(retrieval))
     ctx = ToolContext(
         session=session,
         settings=settings,
@@ -179,6 +187,7 @@ def ask(
         "model": model,
         "prompt_version": PROMPT_VERSION,
         "retrieval_mode": retrieval.mode,
+        "rewritten_queries": retrieval.params.get("rewritten_queries", []),
         "retrieval_trace_id": str(retrieval.trace_id),
         "proposed_action_id": str(run.action_id) if run.action_id else None,
         "action_error": run.action_error,
@@ -408,6 +417,15 @@ def _well_formed(history: list[dict]) -> list[dict]:
     while history and history[-1]["role"] != "assistant":
         history.pop()
     return history
+
+
+def _retrieved_event(retrieval: RetrievalResult) -> dict:
+    return {
+        "step": "retrieved",
+        "count": len(retrieval.chunks),
+        "documents": list(dict.fromkeys(c.document_title for c in retrieval.chunks)),
+        "latency_ms": retrieval.latency_ms,
+    }
 
 
 def _without_markers(text: str) -> str:

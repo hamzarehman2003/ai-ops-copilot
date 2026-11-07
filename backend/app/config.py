@@ -32,6 +32,10 @@ class Settings(BaseSettings):
     ingestion_stale_after_s: int = 900
     # Follow-ups are searched together with the previous question (retrieval/query.py).
     retrieval_follow_up_context: bool = True
+    # LLM mode: when the best reranked chunk scores below this, rewrite the question into
+    # documentation terms and search again (generation/query_rewrite.py).
+    query_rewrite: bool = True
+    query_rewrite_below_score: float = 0.0
 
     # LLM. Without an API key the copilot runs in "offline" mode (extractive, no generation).
     # llm_provider: "anthropic" (Messages API) or "openai" = any OpenAI-compatible Chat

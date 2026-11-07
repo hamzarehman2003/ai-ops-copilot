@@ -26,10 +26,20 @@ export function toSteps(events: ProgressEvent[]): Step[] {
       case "retrieving":
         push({ key: "search", label: "Searching the knowledge base", state: "active" });
         break;
+      case "rewriting":
+        push({
+          key: "rewrite",
+          label: "Weak match, searching again in the docs' terms",
+          detail: e.queries.join(" · "),
+          state: "active",
+        });
+        break;
       case "retrieved": {
-        const search = steps.find((s) => s.key === "search");
+        // The latest search: the first one, or the retry after a rewrite.
+        const search = [...steps].reverse().find((s) => s.key === "search" || s.key === "rewrite");
         if (search) {
           search.state = "done";
+          if (search.key === "rewrite") break; // keep the queries as its detail
           search.label = "Searched the knowledge base";
           search.detail =
             e.count === 0

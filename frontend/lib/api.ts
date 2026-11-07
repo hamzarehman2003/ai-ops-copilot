@@ -351,6 +351,7 @@ function apiError(res: Response, data: unknown): ApiError {
 export type ProgressEvent =
   | { step: "retrieving" }
   | { step: "retrieved"; count: number; documents: string[]; latency_ms: number }
+  | { step: "rewriting"; queries: string[] }
   | { step: "model"; round: number; model: string }
   | { step: "tool"; name: string }
   | { step: "tool_done"; name: string; ok: boolean; error: string | null }

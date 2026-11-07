@@ -101,9 +101,14 @@ class Indexed:
 
 @pytest.fixture(scope="module")
 def indexed_connection(db_engine: Engine, tmp_path_factory) -> Iterator[tuple]:
-    # Tests never call a real model, whatever keys are in .env (LLM tests use fakes).
+    # Tests never call a real model, whatever keys are in .env (LLM tests use fakes). Query
+    # rewriting is off so scripted fakes see exactly the turns a test scripts; its own tests
+    # switch it on.
     settings = Settings(
-        upload_dir=tmp_path_factory.mktemp("uploads"), anthropic_api_key=None, llm_api_key=None
+        upload_dir=tmp_path_factory.mktemp("uploads"),
+        anthropic_api_key=None,
+        llm_api_key=None,
+        query_rewrite=False,
     )
     conn = db_engine.connect()
     outer = conn.begin()
