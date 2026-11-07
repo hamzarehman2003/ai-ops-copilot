@@ -75,6 +75,17 @@ def main() -> int:
     parser.add_argument("--llm", action="store_true", help="generate answers with the LLM")
     parser.add_argument("--limit", type=int, default=None, help="only the first N cases")
     parser.add_argument(
+        "--only",
+        default=None,
+        metavar="IDS_OR_CATEGORIES",
+        help="comma-separated case ids and/or categories, e.g. p01,p02,unanswerable",
+    )
+    parser.add_argument(
+        "--answers-only",
+        action="store_true",
+        help="skip the retrieval-mode comparison (faster prompt iterations)",
+    )
+    parser.add_argument(
         "--judge",
         action="store_true",
         help="with --llm: score faithfulness (claims supported by the context) with an LLM judge",
@@ -99,6 +110,9 @@ def main() -> int:
     if not out_dir.is_absolute() and not out_dir.exists():
         out_dir = HERE / "results"
     cases = [json.loads(line) for line in args.cases.read_text("utf-8").splitlines() if line]
+    if args.only:
+        wanted = {w.strip() for w in args.only.split(",") if w.strip()}
+        cases = [c for c in cases if c["id"] in wanted or c["category"] in wanted]
     cases = cases[: args.limit] if args.limit else cases
 
     llm = get_llm(settings) if args.llm else None
@@ -140,7 +154,9 @@ def main() -> int:
                     raise SystemExit(f"--deprecate: no source named {filename}")
                 document.deprecated = True
             session.flush()
-            report, rows = run(session, settings, cases, args.k, llm, judge, commit)
+            report, rows = run(
+                session, settings, cases, args.k, llm, judge, commit, args.answers_only
+            )
         finally:
             session.close()
             outer.rollback()  # leave no trace in the database
@@ -165,6 +181,7 @@ def run(
     llm,
     judge=None,
     commit: str | None = None,
+    answers_only: bool = False,
 ) -> tuple[dict, list]:
     users = {u.email: u for u in session.scalars(select(User))}
     tasklane = users[DEFAULT_USER]
@@ -174,7 +191,11 @@ def run(
 
     failures: list[dict] = []
     rows: list[dict] = []
-    retrieval = _eval_retrieval(session, settings, cases, tasklane, k, failures)
+    retrieval = (
+        {"k": k, "modes": {}, "latency_ms_p50": None, "latency_ms_p95": None, "_leaks": 0}
+        if answers_only
+        else _eval_retrieval(session, settings, cases, tasklane, k, failures)
+    )
     answers, tools, security, latencies = _eval_answers(
         session, settings, cases, users, llm, failures, rows, judge
     )
