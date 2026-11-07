@@ -37,6 +37,11 @@ services:
       LLM_FALLBACK_MODELS: ${LLM_FALLBACK_MODELS:-}
       LLM_MAX_RETRIES: ${LLM_MAX_RETRIES:-3}
       LLM_EFFORT: ${LLM_EFFORT-medium}
+      LLM_TIMEOUT_S: ${LLM_TIMEOUT_S:-90}
+      # Local models (Ollama): see .env.example.
+      LLM_SCHEMA_WITH_TOOLS: ${LLM_SCHEMA_WITH_TOOLS:-true}
+      LLM_TEMPERATURE: ${LLM_TEMPERATURE:-}
+      LLM_MAX_OUTPUT_TOKENS: ${LLM_MAX_OUTPUT_TOKENS:-}
     ports:
       - "${API_PORT:-8001}:8000"
     volumes:

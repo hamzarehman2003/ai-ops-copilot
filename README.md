@@ -22,7 +22,7 @@ MiniLM cross-encoder) · LLM adapter: Claude (`claude-opus-5-5`) or any OpenAI-c
 ## Quick start
 
 ```bash
-cp .env.example .env            # optionally set an LLM key: Anthropic, or Gemini/Ollama/... (otherwise offline mode)
+cp .env.example .env            # optional LLM: Anthropic key, Gemini/Groq/OpenAI key, or a local Ollama model (otherwise offline mode)
 docker compose up -d --build    # db :5433, api :8001, web :3002
 docker compose exec api python -m scripts.seed               # users, customers, tickets
 docker compose exec api python -m scripts.upload_demo_docs   # upload + index, waits until ready
@@ -40,7 +40,9 @@ step live (search → account tools → model rounds → checks).
 
 1. **Copilot**, customer *Brightpath Logistics*: "Why can't the team create tasks or upload
    files?" → account status `suspended` from the CRM tool + the suspension policy, cited.
-2. Approve the proposed ticket note (LLM mode) → see it executed and in the **Audit log**.
+2. Follow up: "Add an internal note to their open ticket summarizing why they're blocked." →
+   the copilot reads the tickets and proposes a note on TCK-2041 (LLM mode; larger hosted
+   models often propose it unprompted). Approve it → executed, and in the **Audit log**.
 3. *Northwind Studio*: "Can we turn on SSO with Okta?" → Pro plan, SSO is Enterprise-only.
 4. "What is the capital of France?" → abstains instead of guessing.
 5. Switch to `agent@acme.example` and search "ORCHID-7" → found; as a Tasklane user → nothing

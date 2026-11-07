@@ -31,6 +31,9 @@ def settings(**overrides) -> Settings:
         llm_base_url="https://llm.test/v1",
         llm_model="test-model",
         llm_fallback_models="",  # pin everything .env could set
+        llm_schema_with_tools=True,
+        llm_temperature=None,
+        llm_max_output_tokens=None,
         llm_effort="low",
         llm_max_retries=2,
         llm_timeout_s=90.0,
@@ -135,6 +138,17 @@ def test_no_tools_key_and_no_effort_when_unset():
     )
     assert "tools" not in provider.requests[0]
     assert "reasoning_effort" not in provider.requests[0]
+    assert "temperature" not in provider.requests[0]  # provider default unless configured
+    assert "max_tokens" not in provider.requests[0]
+
+
+def test_temperature_and_token_cap_are_sent_when_set():
+    provider = Provider(ok({"role": "assistant", "content": "{}"}))
+    provider.llm(llm_temperature=0.2, llm_max_output_tokens=4096).turn(
+        system="s", messages=[{"role": "user", "content": "q"}], tools=[], output_schema=SCHEMA
+    )
+    assert provider.requests[0]["temperature"] == 0.2
+    assert provider.requests[0]["max_tokens"] == 4096
 
 
 def test_rate_limit_is_retried_with_retry_after():
@@ -214,6 +228,53 @@ def test_copilot_runs_end_to_end_through_the_adapter(indexed):
     tool_message = provider.requests[1]["messages"][-1]
     assert tool_message["role"] == "tool" and "suspended" in tool_message["content"]
     assert session.get(ProposedAction, run.action_id).status == ActionStatus.PENDING
+
+
+# --- Servers whose JSON-schema mode blocks tool calls (Ollama) ---------------------------------
+
+ANSWER = {"type": "object", "required": ["answer", "citations"]}
+QUESTION_ONLY = [{"role": "user", "content": "q"}]
+
+
+def test_tool_turns_omit_the_schema_when_it_would_block_tool_calls():
+    provider = Provider(ok(tool_call_message("call_1", "get_account_status", {}), "tool_calls"))
+    turn = provider.llm(llm_schema_with_tools=False).turn(
+        system="s", messages=QUESTION_ONLY, tools=[TOOL], output_schema=ANSWER
+    )
+    assert turn.stop_reason == "tool_use"
+    assert "response_format" not in provider.requests[0]
+    assert "tools" in provider.requests[0]
+
+
+def test_a_free_form_answer_is_re_requested_with_the_schema():
+    provider = Provider(
+        ok({"role": "assistant", "content": "The workspace is suspended."}),
+        ok({"role": "assistant", "content": '{"answer": "suspended", "citations": []}'}),
+    )
+    turn = provider.llm(llm_schema_with_tools=False).turn(
+        system="s", messages=QUESTION_ONLY, tools=[TOOL], output_schema=ANSWER
+    )
+    assert json.loads(turn.text)["answer"] == "suspended"
+    retry = provider.requests[1]
+    assert retry["response_format"]["json_schema"]["schema"] == ANSWER
+    assert "tools" not in retry
+    assert retry["messages"] == provider.requests[0]["messages"]  # the draft is not sent back
+
+
+def test_an_answer_that_already_fits_the_schema_is_kept():
+    provider = Provider(ok({"role": "assistant", "content": '{"answer": "a", "citations": []}'}))
+    provider.llm(llm_schema_with_tools=False).turn(
+        system="s", messages=QUESTION_ONLY, tools=[TOOL], output_schema=ANSWER
+    )
+    assert len(provider.requests) == 1
+
+
+def test_without_tools_the_schema_is_always_sent():
+    provider = Provider(ok({"role": "assistant", "content": "{}"}))
+    provider.llm(llm_schema_with_tools=False).turn(
+        system="s", messages=QUESTION_ONLY, tools=[], output_schema=ANSWER
+    )
+    assert "response_format" in provider.requests[0]
 
 
 # --- Fallback models (free tiers have small per-model daily quotas) ----------------------------

@@ -476,6 +476,24 @@ with a structured (JSON) answer you'd stream a field, not raw tokens.
 *In this repo:* `on_progress` in `copilot.ask`, `/api/copilot/query/stream`,
 `frontend/components/copilot/ProgressSteps.tsx`.
 
+### Why can't a local model call tools when you ask for structured JSON output?
+Local servers (Ollama, llama.cpp) implement JSON schemas with grammar-constrained decoding: at
+every step, tokens that would break the schema are masked out. A tool call is a different
+output format, so the model literally cannot produce one; it answers from the documents
+without checking the account. Fix: send tool turns without the schema, and if the model
+answers instead of calling a tool, re-request that one turn with the schema and no tools (or
+keep the reply if it already parses). Hosted APIs (Claude, Gemini, OpenAI) handle tools +
+schema together server-side, so the setting is per provider.
+*In this repo:* `LLM_SCHEMA_WITH_TOOLS`, `OpenAICompatLLM.turn` in `generation/llm.py`.
+
+### How do you pick a local model for a GPU?
+Fit first: weights (Q4 ≈ 0.6 GB per billion parameters) + KV cache for your context must fit
+in VRAM, or layers spill to the CPU and speed collapses (a 14B at 16k context needed 12 GB on a
+12 GB card: 13% ran on the CPU). Then test your real task, not leaderboards: tool calling,
+schema adherence, abstention, injection. Tune sampling too: thinking mode and the default
+temperature both hurt tool-use reliability at the 9B size.
+*In this repo:* `.env.example` (Ollama block), `docs/architecture.md` (local models).
+
 ---
 
 ## 9. Tools, agents, and human approval

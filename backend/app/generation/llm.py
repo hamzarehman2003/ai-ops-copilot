@@ -128,6 +128,10 @@ class OpenAICompatLLM:
       which keeps provider extras such as Gemini's tool-call `thought_signature` intact;
     - Anthropic `tool_result` blocks -> one "tool" message per result.
 
+    `llm_schema_with_tools=false` (Ollama): a JSON schema there constrains decoding so the
+    model cannot emit a tool call, so tool turns are sent without it; a free-form final answer
+    that does not already fit the schema is re-requested once with the schema and no tools.
+
     Fallback: if the model is out of quota or still overloaded after retries, the same turn is
     sent to the next of `llm_fallback_models`. Out-of-quota models are skipped until reset.
     """
@@ -148,6 +152,15 @@ class OpenAICompatLLM:
     ) -> None:
         fallbacks = [m.strip() for m in settings.llm_fallback_models.split(",") if m.strip()]
         self.models = list(dict.fromkeys([settings.llm_model, *fallbacks]))
+        self.schema_with_tools = settings.llm_schema_with_tools
+        self.sampling = {
+            key: value
+            for key, value in (
+                ("temperature", settings.llm_temperature),
+                ("max_tokens", settings.llm_max_output_tokens),
+            )
+            if value is not None
+        }
         self.effort = settings.llm_effort
         self.max_retries = settings.llm_max_retries
         self._sleep = sleep
@@ -166,25 +179,33 @@ class OpenAICompatLLM:
     def turn(
         self, *, system: str, messages: list, tools: list[dict], output_schema: dict
     ) -> LLMTurn:
-        body: dict[str, Any] = {
-            "messages": _to_openai_messages(system, messages),
+        body: dict[str, Any] = {"messages": _to_openai_messages(system, messages), **self.sampling}
+        if self.effort:
+            body["reasoning_effort"] = self.effort
+        structured = {
             "response_format": {
                 "type": "json_schema",
                 "json_schema": {"name": "answer", "schema": output_schema},
-            },
+            }
         }
-        if tools:  # an empty tools list is rejected by some providers
-            body["tools"] = [_to_openai_tool(t) for t in tools]
-        if self.effort:
-            body["reasoning_effort"] = self.effort
+        # An empty tools list is rejected by some providers, so "tools" is only sent when set.
+        openai_tools = {"tools": [_to_openai_tool(t) for t in tools]} if tools else {}
 
-        data, model = self._post_with_fallback(body)
-        try:
-            choice = data["choices"][0]
-            message = choice["message"]
-        except (KeyError, IndexError, TypeError) as exc:
-            raise LLMError(f"Unexpected response shape: {str(data)[:200]}") from exc
+        if tools and not self.schema_with_tools:
+            # The schema would block tool calls: let the model choose freely first. If it
+            # answered instead of calling a tool, keep that answer when it already fits the
+            # schema, otherwise ask again with the schema enforced (and no tools).
+            data, model = self._post_with_fallback(body | openai_tools)
+            message = _first_message(data)
+            if not message.get("tool_calls") and not _fits(message.get("content"), output_schema):
+                data, model = self._post_with_fallback(body | structured)
+        else:
+            data, model = self._post_with_fallback(body | structured | openai_tools)
+        return self._to_turn(data, model)
 
+    def _to_turn(self, data: dict, model: str) -> LLMTurn:
+        message = _first_message(data)
+        choice = data["choices"][0]
         tool_uses = [_tool_use(call) for call in message.get("tool_calls") or []]
         stop_reason = self.STOP_REASONS.get(choice.get("finish_reason") or "stop", "end_turn")
         if tool_uses:
@@ -282,6 +303,26 @@ def _to_openai_messages(system: str, messages: list) -> list[dict]:
                 else:
                     raise LLMError(f"Cannot translate content block {kind!r}")
     return out
+
+
+def _first_message(data: dict) -> dict:
+    try:
+        message = data["choices"][0]["message"]
+    except (KeyError, IndexError, TypeError) as exc:
+        raise LLMError(f"Unexpected response shape: {str(data)[:200]}") from exc
+    if not isinstance(message, dict):
+        raise LLMError(f"Unexpected response shape: {str(data)[:200]}")
+    return message
+
+
+def _fits(content: str | None, schema: dict) -> bool:
+    """Cheap check that a free-form reply is already the JSON answer: an object with every
+    required top-level key. The copilot still validates it fully."""
+    try:
+        value = json.loads(_strip_fences(content or ""))
+    except json.JSONDecodeError:
+        return False
+    return isinstance(value, dict) and all(key in value for key in schema.get("required", []))
 
 
 def _tool_use(call: dict) -> ToolUse:

@@ -54,6 +54,16 @@ turns back verbatim (Gemini's tool-call thought signatures must round-trip). Rat
 longer than 30 s (a daily quota) is not retried: the turn moves to the next of
 `LLM_FALLBACK_MODELS`, and the exhausted model is skipped until its reset.
 
+Local models (Ollama): a JSON schema in `response_format` turns on grammar-constrained decoding,
+which leaves the model no way to emit a tool call (it answers without checking the account).
+With `LLM_SCHEMA_WITH_TOOLS=false`, tool turns go out without the schema; if the model answers
+instead of calling a tool and its reply is not already the JSON answer, the turn is re-sent
+once with the schema and no tools. The demo machine (RTX 3060, 12 GB) runs `qwen3.5:9b` with
+thinking off and temperature 0.3. In a 2026-11-07 scenario comparison it handled the tool
+calls, injection and abstention cases; gemma4:12b timed out or returned unparseable JSON, and
+qwen3:14b skipped tools and spilled onto the CPU. Thinking on doubled to quadrupled latency
+without making tool use more reliable.
+
 Live progress: `ask(..., on_progress=...)` reports steps (retrieving, retrieved, model round,
 tool, tool_done, checking). `POST /api/copilot/query/stream` runs `ask` in a worker thread and
 relays the steps as Server-Sent Events, then sends the final body. Authorization (customer

@@ -108,6 +108,8 @@ Host ports: Postgres **5433**, API **8001** (5432/8000 are used by other local p
   (`conftest.py` clears the keys; adapter tests use a mocked transport, `test_llm_openai.py`).
   Free tiers have small per-model daily quotas: `LLM_FALLBACK_MODELS` (comma-separated) are
   tried when the model is out of quota/overloaded; exhausted models are skipped until reset.
+  Local Ollama (`qwen3.5:9b`): needs `LLM_SCHEMA_WITH_TOOLS=false` (its JSON-schema mode
+  blocks tool calls), `LLM_EFFORT=none`, `LLM_TEMPERATURE=0.3`; see `.env.example`.
 - Reset the demo before a recording/rehearsal (clears conversations, actions, CRM changes,
   deprecated flags, docs uploaded during the demo; keeps users + indexed demo docs):
   `docker compose exec api python -m scripts.reset_demo --yes` (logic in `app/demo_reset.py`).

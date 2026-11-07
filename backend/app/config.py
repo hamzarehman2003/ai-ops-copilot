@@ -1,6 +1,7 @@
 from functools import lru_cache
 from pathlib import Path
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -38,6 +39,13 @@ class Settings(BaseSettings):
     # OpenAI-compatible only: comma-separated models tried in order when llm_model is out of
     # quota or overloaded (free tiers have small per-model daily quotas).
     llm_fallback_models: str = ""
+    # OpenAI-compatible only: false for servers whose JSON-schema mode blocks tool calls
+    # (Ollama: constrained decoding leaves the model no way to emit a tool call).
+    llm_schema_with_tools: bool = True
+    # OpenAI-compatible only, unset = provider default. Local models: a lower temperature makes
+    # tool use steadier, and a token cap stops a runaway generation before the timeout does.
+    llm_temperature: float | None = None
+    llm_max_output_tokens: int | None = None
     llm_effort: str = "medium"  # "" = don't send an effort/reasoning setting
     llm_timeout_s: float = 90.0
     llm_max_retries: int = 3  # 429 / 5xx / timeouts (free tiers rate-limit often)
@@ -54,6 +62,11 @@ class Settings(BaseSettings):
 
     # Browser origins allowed to call the API directly (the Next.js dev server).
     cors_origins: list[str] = ["http://localhost:3000", "http://localhost:3002"]
+
+    @field_validator("llm_temperature", "llm_max_output_tokens", mode="before")
+    @classmethod
+    def _empty_is_unset(cls, value: object) -> object:
+        return None if value == "" else value  # Compose passes unset variables as ""
 
     @property
     def llm_enabled(self) -> bool:
