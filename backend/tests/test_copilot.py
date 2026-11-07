@@ -123,6 +123,35 @@ def test_unknown_citations_become_an_abstention(indexed):
     assert any("unknown sources" in w for w in run.warnings)
 
 
+def test_unknown_markers_are_removed_from_the_answer_text(indexed):
+    llm = FakeLLM(answer("Refunds take 5 days [S1] [S9]. Ask billing [S9].", ["S1", "S9"]))
+    run = ask(
+        indexed.session, indexed.settings, agent(indexed), "What is the refund policy?", llm=llm
+    )
+    assert run.payload.citations == ["S1"]
+    assert run.payload.answer == "Refunds take 5 days [S1]. Ask billing."
+
+
+def test_an_abstaining_answer_never_creates_a_proposal(indexed):
+    llm = FakeLLM(
+        [("get_recent_tickets", {"customer_id": "CUST-1001", "limit": 3})],
+        answer(
+            "I can't tell from the evidence.",
+            abstained=True,
+            action={"type": "add_ticket_tag", "ticket_id": "TCK-2041", "value": "x", "reason": "y"},
+        ),
+    )
+    run = ask(
+        indexed.session,
+        indexed.settings,
+        agent(indexed),
+        QUESTION,
+        customer=customer(indexed, "CUST-1001"),
+        llm=llm,
+    )
+    assert run.payload.abstained and run.action_id is None
+
+
 def test_model_cannot_read_another_customer(indexed):
     llm = FakeLLM(
         [("get_account_status", {"customer_id": "CUST-9001"})],  # other tenant's customer

@@ -40,12 +40,16 @@ export default function CopilotPage() {
   const nextId = useRef(0);
   const bottomRef = useRef<HTMLDivElement>(null);
   const handledQuery = useRef(false);
+  const inFlight = useRef<AbortController | null>(null);
 
   useEffect(() => {
     if (turns.length || pending) {
       bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
     }
   }, [turns, pending]);
+
+  // Leaving the page (or switching user, which remounts it) stops the answer in flight.
+  useEffect(() => () => inFlight.current?.abort(), []);
 
   const changeCustomer = (id: string | null) => {
     // A conversation is about one customer: switching starts a fresh one.
@@ -57,6 +61,8 @@ export default function CopilotPage() {
   const ask = async (text: string) => {
     const q = text.trim();
     if (!q || pending) return;
+    const controller = new AbortController();
+    inFlight.current = controller;
     setQuestion("");
     setTurns((t) => [...t, { kind: "user", id: nextId.current++, text: q }]);
     setPending(true);
@@ -66,13 +72,16 @@ export default function CopilotPage() {
       const response = await api.queryStream(
         { question: q, customer_id: customerId, conversation_id: conversationId },
         (event) => setProgress((p) => [...p, event]),
+        controller.signal,
       );
       setConversationId(response.conversation_id);
       setTurns((t) => [...t, { kind: "assistant", id: nextId.current++, response }]);
     } catch (error) {
+      if (controller.signal.aborted) return;
       setTurns((t) => [...t, { kind: "error", id: nextId.current++, error, question: q }]);
     } finally {
-      setPending(false);
+      if (inFlight.current === controller) inFlight.current = null;
+      if (!controller.signal.aborted) setPending(false);
     }
   };
 
@@ -111,7 +120,7 @@ export default function CopilotPage() {
       />
       <div className="grid gap-5 lg:grid-cols-[19rem_minmax(0,1fr)]">
         <div className="lg:sticky lg:top-20 lg:self-start">
-          <CustomerPanel customerId={customerId} onChange={changeCustomer} />
+          <CustomerPanel customerId={customerId} onChange={changeCustomer} disabled={pending} />
         </div>
 
         <Card className="flex min-h-[36rem] flex-col overflow-hidden border">

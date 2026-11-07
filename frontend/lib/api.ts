@@ -362,6 +362,7 @@ type QueryBody = { question: string; customer_id?: string | null; conversation_i
 async function queryStream(
   body: QueryBody,
   onProgress: (event: ProgressEvent) => void,
+  signal?: AbortSignal,
 ): Promise<QueryResponse> {
   const headers: Record<string, string> = {
     Accept: "text/event-stream",
@@ -376,8 +377,10 @@ async function queryStream(
       headers,
       body: JSON.stringify(body),
       cache: "no-store",
+      signal,
     });
-  } catch {
+  } catch (err) {
+    if (signal?.aborted) throw err;
     throw new ApiError(0, "Cannot reach the API. Is the backend running?");
   }
   if (!res.ok || !res.body) {
@@ -390,28 +393,54 @@ async function queryStream(
   }
 
   const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
-  let buffer = "";
-  for (;;) {
-    const { value, done } = await reader.read();
-    if (done) break;
-    buffer += value;
-    let end: number;
-    while ((end = buffer.indexOf("\n\n")) >= 0) {
-      const block = buffer.slice(0, end);
-      buffer = buffer.slice(end + 2);
-      let event = "message";
-      let data = "";
-      for (const line of block.split("\n")) {
-        if (line.startsWith("event: ")) event = line.slice(7);
-        else if (line.startsWith("data: ")) data += line.slice(6);
+  const stop = () => void reader.cancel().catch(() => {});
+  signal?.addEventListener("abort", stop, { once: true });
+  try {
+    let buffer = "";
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += value.replace(/\r\n?/g, "\n");
+      let end: number;
+      while ((end = buffer.indexOf("\n\n")) >= 0) {
+        const message = parseSseBlock(buffer.slice(0, end));
+        buffer = buffer.slice(end + 2);
+        if (!message) continue; // comment / keep-alive
+        const { event, payload } = message;
+        if (event === "progress") onProgress(payload as ProgressEvent);
+        else if (event === "result") return payload as QueryResponse;
+        else if (event === "error") {
+          const detail = (payload as { detail?: string } | null)?.detail;
+          throw new ApiError(500, detail ?? "Copilot failed");
+        }
       }
-      const payload = JSON.parse(data);
-      if (event === "progress") onProgress(payload as ProgressEvent);
-      else if (event === "result") return payload as QueryResponse;
-      else if (event === "error") throw new ApiError(500, payload.detail ?? "Copilot failed");
     }
+  } finally {
+    signal?.removeEventListener("abort", stop);
   }
+  if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
   throw new ApiError(0, "The answer stream ended unexpectedly.");
+}
+
+/** One SSE message: `event:` and `data:` fields (multi-line data joined with "\n"). */
+export function parseSseBlock(block: string): { event: string; payload: unknown } | null {
+  let event = "message";
+  const data: string[] = [];
+  for (const line of block.split("\n")) {
+    if (line.startsWith(":")) continue;
+    const colon = line.indexOf(":");
+    const field = colon < 0 ? line : line.slice(0, colon);
+    let value = colon < 0 ? "" : line.slice(colon + 1);
+    if (value.startsWith(" ")) value = value.slice(1);
+    if (field === "event") event = value;
+    else if (field === "data") data.push(value);
+  }
+  if (data.length === 0) return null;
+  try {
+    return { event, payload: JSON.parse(data.join("\n")) };
+  } catch {
+    throw new ApiError(500, "The answer stream sent malformed data.");
+  }
 }
 
 // ---------- Endpoints ----------

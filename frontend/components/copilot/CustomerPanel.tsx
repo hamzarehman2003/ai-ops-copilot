@@ -15,9 +15,12 @@ import { Badge, Card, ErrorBanner, Spinner, StatusBadge } from "../ui";
 export function CustomerPanel({
   customerId,
   onChange,
+  disabled = false,
 }: {
   customerId: string | null;
   onChange: (id: string | null) => void;
+  /** While an answer is in flight: switching customer mid-answer would mix conversations. */
+  disabled?: boolean;
 }) {
   const customers = useAsync(() => api.customers(), []);
   const customer = customers.data?.find((c) => c.id === customerId) ?? null;
@@ -34,7 +37,7 @@ export function CustomerPanel({
           className="mt-2 w-full"
           value={customerId ?? ""}
           onChange={(e) => onChange(e.target.value || null)}
-          disabled={customers.loading && !customers.data}
+          disabled={disabled || (customers.loading && !customers.data)}
         >
           <NativeSelectOption value="">No customer (docs only)</NativeSelectOption>
           {customers.data?.map((c) => (

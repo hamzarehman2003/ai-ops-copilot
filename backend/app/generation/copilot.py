@@ -279,6 +279,12 @@ def _enforce_grounding(
     invalid = claimed - known
     if invalid:
         warnings.append(f"Removed citations to unknown sources: {sorted(invalid)}")
+        # Also from the text, so the UI never shows a marker that points nowhere.
+        payload.answer = CITATION.sub(
+            lambda m: "" if m.group(1) in invalid else m.group(0), payload.answer
+        )
+        payload.answer = re.sub(r"[ \t]+([.,;:!?])", r"\1", payload.answer)
+        payload.answer = re.sub(r"(?<=\S)[ \t]{2,}", " ", payload.answer).strip()
     valid = sorted(claimed & known, key=lambda s: int(s[1:]))
     payload.citations = valid
 
@@ -293,7 +299,7 @@ def _maybe_propose(
     session: Session, run: CopilotRun, user: User, customer: Customer | None
 ) -> None:
     proposal = run.payload.proposed_action
-    if proposal.type == "none":
+    if proposal.type == "none" or run.payload.abstained:  # no evidence, no action
         return
     try:
         action = propose_action(
