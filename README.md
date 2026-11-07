@@ -1,6 +1,6 @@
 # AI Operations Copilot
 
-[![CI](https://github.com/hamzarehman2003/ai-ops-copilot/actions/workflows/ci.yml/badge.svg?branch=demo-prep)](https://github.com/hamzarehman2003/ai-ops-copilot/actions/workflows/ci.yml)
+[![CI](https://github.com/hamzarehman2003/ai-ops-copilot/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/hamzarehman2003/ai-ops-copilot/actions/workflows/ci.yml)
 
 A support copilot for a fictional B2B SaaS company ("Tasklane"). A support agent asks about a
 customer's problem; the copilot retrieves product docs (RAG), checks the customer's account
