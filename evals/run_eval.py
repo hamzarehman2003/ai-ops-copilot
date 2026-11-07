@@ -420,7 +420,10 @@ def _eval_answers(session, settings, cases, users, llm, failures, rows, judge=No
                     f"cited {cited_files}, expected {sorted(expected)}",
                 )
         if case.get("must_include") and not run.payload.abstained:
-            missing = [s for s in case["must_include"] if s.lower() not in text]
+            # "a|b": either spelling counts (e.g. "30-day|30 days")
+            missing = [
+                s for s in case["must_include"] if not any(a.lower() in text for a in s.split("|"))
+            ]
             check("required_facts", not missing, f"missing {missing}")
         if case.get("must_not_include"):
             found = [s for s in case["must_not_include"] if _asserts(text, s.lower())]

@@ -19,7 +19,7 @@
 {"id": "s19", "category": "single_source", "question": "What happens to projects when a workspace downgrades from Pro to Free with 6 active projects?", "expected_files": ["pricing-and-plans.md"], "must_include": ["archive"]}
 {"id": "s20", "category": "single_source", "question": "How long is an Enterprise trial and does it include SCIM?", "expected_files": ["pricing-and-plans.md"], "must_include": ["30 days"]}
 {"id": "s21", "category": "single_source", "question": "What status do automation rules show when the monthly quota is exceeded?", "expected_files": ["pricing-and-plans.md"], "must_include": ["Quota exceeded"]}
-{"id": "s22", "category": "single_source", "question": "How long is audit log retention on the Pro plan?", "expected_files": ["pricing-and-plans.md"], "must_include": ["30-day"]}
+{"id": "s22", "category": "single_source", "question": "How long is audit log retention on the Pro plan?", "expected_files": ["pricing-and-plans.md"], "must_include": ["30-day|30 days"]}
 {"id": "s23", "category": "single_source", "question": "Is there a refund for Pro monthly billing?", "expected_files": ["billing-and-refunds-policy.pdf"]}
 {"id": "s24", "category": "single_source", "question": "How long does it take for a refund to reach the customer's card?", "expected_files": ["billing-and-refunds-policy.pdf"], "must_include": ["5"]}
 {"id": "s25", "category": "single_source", "question": "Who can approve a refund exception after a long outage?", "expected_files": ["billing-and-refunds-policy.pdf"], "must_include": ["Billing team lead"]}
