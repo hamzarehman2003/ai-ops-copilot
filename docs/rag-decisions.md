@@ -210,8 +210,8 @@ One entry per decision. This is interview prep: be able to defend every line.
 - **Alternatives:** LLM query rewrite into a standalone question (better with pronouns and
   topic switches, but +1 model call per follow-up and nothing in offline mode); retrieving
   separately for both and fusing (more candidates to rerank).
-- **Eval evidence:** 8 new `follow_up` cases (f01–f08), offline, legacy FAQ deprecated.
-  Off (`--out` scratch run `20261107T184204Z`): follow-up MRR 0.81 (f04 missed entirely);
+- **Eval evidence:** 8 new `follow_up` cases (fu01–fu08; named f01–f08 in those two runs, which clashed with the tool-fault ids), offline, legacy FAQ deprecated.
+  Off (`--out` scratch run `20261107T184204Z`): follow-up MRR 0.81 (fu04 missed entirely);
   on (`20261107T184530Z`): follow-up MRR 1.00; all 103 cases: hybrid_rerank MRR
   0.942 → 0.962, hit@1 0.91 → 0.94.
 - **Known trade-offs / when I'd revisit:** a topic switch ("what about SSO?" after a refund

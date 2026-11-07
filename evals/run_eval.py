@@ -110,6 +110,9 @@ def main() -> int:
     if not out_dir.is_absolute() and not out_dir.exists():
         out_dir = HERE / "results"
     cases = [json.loads(line) for line in args.cases.read_text("utf-8").splitlines() if line]
+    duplicates = sorted({c["id"] for c in cases if [d["id"] for d in cases].count(c["id"]) > 1})
+    if duplicates:
+        raise SystemExit(f"Duplicate case ids in {args.cases.name}: {duplicates}")
     if args.only:
         wanted = {w.strip() for w in args.only.split(",") if w.strip()}
         cases = [c for c in cases if c["id"] in wanted or c["category"] in wanted]
@@ -393,6 +396,7 @@ def _eval_answers(session, settings, cases, users, llm, failures, rows, judge=No
             "latency_ms": answer_latency[-1],
             "faithfulness": "",
             "checks_failed": "",
+            "answer": run.payload.answer[:600],
         }
 
         # Defined and called within this iteration, so the loop variables are current.
