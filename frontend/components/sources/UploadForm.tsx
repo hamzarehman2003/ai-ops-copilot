@@ -55,7 +55,7 @@ export function UploadForm({ onUploaded }: { onUploaded: () => void }) {
       <CardHeader>
         <p className="eyebrow text-muted-foreground">Upload</p>
         <CardTitle className="text-[15px] font-semibold">Add a source</CardTitle>
-        <CardDescription className="text-[13px]">
+        <CardDescription className="text-ui">
           New versions are indexed in the background and swapped in once they are ready.
         </CardDescription>
       </CardHeader>
@@ -89,19 +89,19 @@ export function UploadForm({ onUploaded }: { onUploaded: () => void }) {
             <span className="min-w-0 flex-1">
               {file ? (
                 <>
-                  <span className="block truncate text-[13.5px] font-medium text-foreground">
+                  <span className="block truncate text-body font-medium text-foreground">
                     {file.name}
                   </span>
-                  <span className="numeric block text-[11.5px] text-muted-foreground">
+                  <span className="numeric block text-caption text-muted-foreground">
                     {formatBytes(file.size)}
                   </span>
                 </>
               ) : (
                 <>
-                  <span className="block text-[13.5px] font-medium text-foreground">
+                  <span className="block text-body font-medium text-foreground">
                     Drop a file or <span className="underline underline-offset-2">browse</span>
                   </span>
-                  <span className="block text-[12px] text-muted-foreground">
+                  <span className="block text-meta text-muted-foreground">
                     PDF, Markdown, HTML or text
                   </span>
                 </>
@@ -117,7 +117,7 @@ export function UploadForm({ onUploaded }: { onUploaded: () => void }) {
             />
           </label>
           <div className="grid gap-1.5">
-            <Label htmlFor={titleId} className="text-[13px] text-foreground/80">
+            <Label htmlFor={titleId} className="text-ui text-foreground/80">
               Title <span className="font-normal text-muted-foreground">(optional)</span>
             </Label>
             <Input

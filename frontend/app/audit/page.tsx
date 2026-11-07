@@ -39,7 +39,7 @@ function actorLabel(e: AuditEvent): string {
   return e.actor_name ?? (e.actor_user_id ? shortId(e.actor_user_id) : "System");
 }
 
-const th = "h-10 px-5 text-[10.5px] font-medium tracking-[0.1em] text-muted-foreground uppercase";
+const th = "h-10 px-5 text-micro font-medium tracking-[0.1em] text-muted-foreground uppercase";
 
 export default function AuditPage() {
   const events = useAsync<AuditEvent[]>(() => api.auditEvents(200), []);
@@ -101,9 +101,9 @@ export default function AuditPage() {
             <Tabs value={filter} onValueChange={(v) => setFilter(v as Filter)}>
               <TabsList variant="line" className="h-10 gap-5 p-0">
                 {FILTERS.map((f) => (
-                  <TabsTrigger key={f.value} value={f.value} className="flex-none px-0.5 text-[13.5px]">
+                  <TabsTrigger key={f.value} value={f.value} className="flex-none px-0.5 text-body">
                     {f.label}
-                    <span className="numeric text-[11px] text-muted-foreground">{counts[f.value]}</span>
+                    <span className="numeric text-caption text-muted-foreground">{counts[f.value]}</span>
                   </TabsTrigger>
                 ))}
               </TabsList>
@@ -123,7 +123,7 @@ export default function AuditPage() {
           </div>
 
           <div className="overflow-hidden rounded-lg border bg-card shadow-card">
-            <Table className="text-[13px]" data-testid="audit-table">
+            <Table className="text-ui" data-testid="audit-table">
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
                   <TableHead className={th}>When</TableHead>
@@ -146,11 +146,11 @@ export default function AuditPage() {
                     return (
                       <Fragment key={e.id}>
                         <TableRow className={cn(isOpen && "border-b-0")}>
-                          <TableCell className="numeric px-5 py-3 text-[11.5px] text-muted-foreground">
+                          <TableCell className="numeric px-5 py-3 text-caption text-muted-foreground">
                             {formatDate(e.created_at)}
                           </TableCell>
                           <TableCell className="px-5 py-3">
-                            <span className="inline-flex items-center gap-2 font-mono text-[12px] text-foreground">
+                            <span className="inline-flex items-center gap-2 font-mono text-meta text-foreground">
                               <span
                                 className={cn("size-1.5 shrink-0 rounded-full", eventDot(e.event_type))}
                                 aria-hidden
@@ -158,16 +158,16 @@ export default function AuditPage() {
                               {e.event_type}
                             </span>
                           </TableCell>
-                          <TableCell className="px-5 py-3 text-[12.5px]">
+                          <TableCell className="px-5 py-3 text-small">
                             <span className="text-foreground/80">{e.entity_type}</span>{" "}
                             <span
-                              className="font-mono text-[11px] text-muted-foreground"
+                              className="font-mono text-caption text-muted-foreground"
                               title={e.entity_id}
                             >
                               {shortId(e.entity_id)}
                             </span>
                           </TableCell>
-                          <TableCell className="px-5 py-3 text-[12.5px] text-foreground/80">
+                          <TableCell className="px-5 py-3 text-small text-foreground/80">
                             {actorLabel(e)}
                           </TableCell>
                           <TableCell className="max-w-md px-5 py-3">
@@ -175,7 +175,7 @@ export default function AuditPage() {
                               type="button"
                               onClick={() => toggle(e.id)}
                               aria-expanded={isOpen}
-                              className="flex w-full items-center gap-1.5 truncate rounded-sm text-left font-mono text-[11.5px] text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
+                              className="flex w-full items-center gap-1.5 truncate rounded-sm text-left font-mono text-caption text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
                               title={isOpen ? "Hide JSON" : "Show JSON"}
                             >
                               <Icon

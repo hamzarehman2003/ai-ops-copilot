@@ -30,7 +30,7 @@ export default function RouteError({
         }
       >
         Something on this page failed to render. Other pages still work.
-        {error.digest && <span className="mt-1 block font-mono text-[11px]">{error.digest}</span>}
+        {error.digest && <span className="mt-1 block font-mono text-caption">{error.digest}</span>}
       </EmptyState>
     </div>
   );

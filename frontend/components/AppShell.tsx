@@ -92,7 +92,7 @@ function AppSidebar({ pathname }: { pathname: string }) {
       <SidebarContent className="pt-1">
         {NAV.map((group) => (
           <SidebarGroup key={group.group}>
-            <SidebarGroupLabel className="eyebrow h-7 px-2 text-[10px]">
+            <SidebarGroupLabel className="eyebrow h-7 px-2 text-micro">
               {group.group}
             </SidebarGroupLabel>
             <SidebarGroupContent>
@@ -105,7 +105,7 @@ function AppSidebar({ pathname }: { pathname: string }) {
                         asChild
                         isActive={active}
                         tooltip={item.label}
-                        className="relative h-9 text-[13.5px] text-sidebar-foreground/80 data-[active=true]:font-medium data-[active=true]:text-sidebar-foreground data-[active=true]:before:absolute data-[active=true]:before:inset-y-2 data-[active=true]:before:left-0 data-[active=true]:before:w-0.5 data-[active=true]:before:rounded-full data-[active=true]:before:bg-primary"
+                        className="relative h-9 text-body text-sidebar-foreground/80 data-[active=true]:font-medium data-[active=true]:text-sidebar-foreground data-[active=true]:before:absolute data-[active=true]:before:inset-y-2 data-[active=true]:before:left-0 data-[active=true]:before:w-0.5 data-[active=true]:before:rounded-full data-[active=true]:before:bg-primary"
                       >
                         <Link href={item.href}>
                           <Icon name={item.icon} className={cn(active && "text-primary")} />
@@ -113,7 +113,7 @@ function AppSidebar({ pathname }: { pathname: string }) {
                         </Link>
                       </SidebarMenuButton>
                       {item.href === "/actions" && pending ? (
-                        <SidebarMenuBadge className="numeric rounded-sm bg-primary px-1.5 text-[10.5px] text-primary-foreground">
+                        <SidebarMenuBadge className="numeric rounded-sm bg-primary px-1.5 text-micro text-primary-foreground">
                           {pending}
                         </SidebarMenuBadge>
                       ) : null}
@@ -205,7 +205,7 @@ function UserMenu() {
               {workspaces.map((ws, i) => (
                 <div key={ws}>
                   {i > 0 && <DropdownMenuSeparator />}
-                  <DropdownMenuLabel className="eyebrow text-[10px]">{ws}</DropdownMenuLabel>
+                  <DropdownMenuLabel className="eyebrow text-micro">{ws}</DropdownMenuLabel>
                   {users
                     .filter((u) => u.workspace_name === ws)
                     .map((u) => (

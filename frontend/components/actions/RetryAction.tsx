@@ -45,7 +45,7 @@ export function RetryAction({
         <Icon name="refresh" className="size-3.5" />
         {busy ? "Retrying…" : "Retry"}
       </Button>
-      <p className="text-[11.5px] leading-relaxed text-muted-foreground">
+      <p className="text-caption leading-relaxed text-muted-foreground">
         Uses the original approval. Safe to repeat: the change is applied at most once.
       </p>
       {error != null && <ErrorBanner error={error} />}

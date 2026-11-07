@@ -44,7 +44,7 @@ import { useAsync } from "@/lib/useAsync";
 import { cn } from "@/lib/utils";
 
 const POLL_MS = 2000;
-const th = "h-9 px-4 text-[10.5px] font-medium tracking-[0.1em] text-muted-foreground uppercase";
+const th = "h-9 px-4 text-micro font-medium tracking-[0.1em] text-muted-foreground uppercase";
 const td = "px-4 py-3";
 
 type Filter = "all" | "ready" | "processing" | "deprecated";
@@ -135,7 +135,7 @@ export default function SourcesPage() {
         actions={
           <>
             {busy && (
-              <span className="flex items-center gap-2 text-[12.5px] text-muted-foreground">
+              <span className="flex items-center gap-2 text-small text-muted-foreground">
                 <Spinner className="h-3 w-3" /> Indexing, refreshing every 2 s
               </span>
             )}
@@ -165,7 +165,7 @@ export default function SourcesPage() {
         <UploadForm onUploaded={() => void reload(true)} />
       ) : (
         role && (
-          <p className="mb-5 flex items-center gap-2 text-[12.5px] text-muted-foreground">
+          <p className="mb-5 flex items-center gap-2 text-small text-muted-foreground">
             <Icon name="info" className="h-3.5 w-3.5" />
             Only admins can upload, reindex or deprecate sources. You are signed in as {role}.
           </p>
@@ -186,9 +186,9 @@ export default function SourcesPage() {
             <Tabs value={filter} onValueChange={(v) => setFilter(v as Filter)} className="gap-0">
               <TabsList variant="line" className="h-10 gap-5 p-0" aria-label="Filter sources">
                 {FILTERS.map((f) => (
-                  <TabsTrigger key={f.value} value={f.value} className="h-full flex-none px-0.5 text-[13.5px] after:bottom-[-1px]!">
+                  <TabsTrigger key={f.value} value={f.value} className="h-full flex-none px-0.5 text-body after:bottom-[-1px]!">
                     {f.label}
-                    <span className="numeric text-[11.5px] text-muted-foreground">
+                    <span className="numeric text-caption text-muted-foreground">
                       {list.filter(f.test).length}
                     </span>
                   </TabsTrigger>
@@ -204,7 +204,7 @@ export default function SourcesPage() {
                 placeholder="Filter by title or filename…"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                className="text-[13px]"
+                className="text-ui"
               />
               {query && (
                 <InputGroupAddon align="inline-end">
@@ -222,7 +222,7 @@ export default function SourcesPage() {
           </div>
 
           <div className="overflow-hidden rounded-lg border bg-card shadow-card">
-            <Table className="text-[13px]" data-testid="sources-table">
+            <Table className="text-ui" data-testid="sources-table">
               <TableHeader className="bg-muted/40">
                 <TableRow className="hover:bg-transparent">
                   <TableHead className={th}>Document</TableHead>
@@ -264,26 +264,26 @@ export default function SourcesPage() {
                               </span>
                               {s.deprecated && (
                                 <span
-                                  className="rounded-sm border px-1 font-mono text-[10px] tracking-wide text-muted-foreground uppercase"
+                                  className="rounded-sm border px-1 font-mono text-micro tracking-wide text-muted-foreground uppercase"
                                   title="Excluded from retrieval"
                                 >
                                   deprecated
                                 </span>
                               )}
                             </div>
-                            <div className="font-mono text-[11px] text-muted-foreground/70">
+                            <div className="font-mono text-caption text-muted-foreground/70">
                               {s.filename}
                             </div>
                             {v?.error_message && (
-                              <div className="mt-1 text-[12px] text-destructive">{v.error_message}</div>
+                              <div className="mt-1 text-meta text-destructive">{v.error_message}</div>
                             )}
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell className={cn(td, "numeric text-[12px] text-foreground/80")}>
+                      <TableCell className={cn(td, "numeric text-meta text-foreground/80")}>
                         {v ? `v${v.version_number}` : "—"}
                         {v && !v.is_current && (
-                          <span className="ml-1.5 font-sans text-[11.5px] text-muted-foreground/70">
+                          <span className="ml-1.5 font-sans text-caption text-muted-foreground/70">
                             not current
                           </span>
                         )}
@@ -291,10 +291,10 @@ export default function SourcesPage() {
                       <TableCell className={td}>
                         {v ? <StatusBadge status={v.status} /> : "—"}
                       </TableCell>
-                      <TableCell className={cn(td, "numeric text-right text-[12px] text-muted-foreground")}>
+                      <TableCell className={cn(td, "numeric text-right text-meta text-muted-foreground")}>
                         {v ? formatBytes(v.file_size_bytes) : "—"}
                       </TableCell>
-                      <TableCell className={cn(td, "text-[12.5px] text-muted-foreground")}>
+                      <TableCell className={cn(td, "text-small text-muted-foreground")}>
                         {timeAgo(v?.processed_at)}
                       </TableCell>
                       <TableCell className={cn(td, "py-2")}>

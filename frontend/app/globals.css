@@ -16,6 +16,17 @@
   --font-mono: var(--font-plex-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
   --font-heading: var(--font-plex-sans), ui-sans-serif, system-ui, sans-serif;
 
+  /* Type scale (font size only: text keeps the surrounding line height). Names are known to
+     `cn` in lib/utils.ts. */
+  --text-micro: 0.65625rem; /* 10.5px: badges, ids, chart ticks */
+  --text-caption: 0.71875rem; /* 11.5px: eyebrows, meta lines */
+  --text-meta: 0.75rem; /* 12px: secondary text */
+  --text-small: 0.78125rem; /* 12.5px: dense lists, notes */
+  --text-ui: 0.8125rem; /* 13px: controls, table text */
+  --text-body: 0.84375rem; /* 13.5px: running text */
+  --text-ui-lg: 0.875rem; /* 14px: emphasized UI text */
+  --text-reading: 0.90625rem; /* 14.5px: copilot answers */
+
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);

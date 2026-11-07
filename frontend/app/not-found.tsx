@@ -10,7 +10,7 @@ export default function NotFound() {
         title="Page not found"
         icon="search"
         action={
-          <Link href="/" className="text-[13px] font-medium text-primary hover:underline">
+          <Link href="/" className="text-ui font-medium text-primary hover:underline">
             Back to the overview
           </Link>
         }

@@ -28,7 +28,7 @@ export function CustomerPanel({
   return (
     <div className="space-y-3">
       <Card className="border p-4">
-        <Label htmlFor="customer-picker" className="eyebrow text-[0.6875rem] leading-normal">
+        <Label htmlFor="customer-picker" className="eyebrow text-caption leading-normal">
           Customer context
         </Label>
         <NativeSelect
@@ -54,7 +54,7 @@ export function CustomerPanel({
         {customer ? (
           <CustomerCard customer={customer} />
         ) : (
-          <p className="mt-3 text-[12.5px] leading-relaxed text-muted-foreground">
+          <p className="mt-3 text-small leading-relaxed text-muted-foreground">
             With a customer selected, the copilot can read their account through tools and propose
             ticket actions.
           </p>
@@ -76,16 +76,16 @@ function CustomerCard({ customer }: { customer: Customer }) {
       <Separator className="my-4" />
       <div className="flex items-center gap-3">
         <Avatar size="lg" className="rounded-md after:rounded-md">
-          <AvatarFallback className="rounded-md bg-primary/10 text-[13px] font-semibold text-primary">
+          <AvatarFallback className="rounded-md bg-primary/10 text-ui font-semibold text-primary">
             {initials}
           </AvatarFallback>
         </Avatar>
         <div className="min-w-0">
-          <div className="truncate text-[14px] font-medium text-foreground">{customer.name}</div>
-          <div className="font-mono text-[11px] text-muted-foreground">{customer.external_id}</div>
+          <div className="truncate text-ui-lg font-medium text-foreground">{customer.name}</div>
+          <div className="font-mono text-caption text-muted-foreground">{customer.external_id}</div>
         </div>
       </div>
-      <dl className="mt-3.5 grid grid-cols-2 gap-2 text-[12px]">
+      <dl className="mt-3.5 grid grid-cols-2 gap-2 text-meta">
         <div className="rounded-md border bg-muted/40 px-2.5 py-2">
           <dt className="eyebrow">Plan</dt>
           <dd className="mt-1 font-medium text-foreground capitalize">{customer.plan}</dd>
@@ -119,7 +119,7 @@ function TicketList({ customerId }: { customerId: string }) {
         </div>
       )}
       {tickets.data?.length === 0 && (
-        <p className="px-4 pb-4 text-[12.5px] text-muted-foreground">No tickets.</p>
+        <p className="px-4 pb-4 text-small text-muted-foreground">No tickets.</p>
       )}
       {!!tickets.data?.length && (
         <ul className="divide-y border-t">
@@ -133,13 +133,13 @@ function TicketList({ customerId }: { customerId: string }) {
                         name="chevronRight"
                         className="mt-0.5 size-3.5 shrink-0 text-muted-foreground transition-transform group-open:rotate-90"
                       />
-                      <span className="text-[13px] leading-snug font-medium text-foreground/85 group-open:text-foreground">
+                      <span className="text-ui leading-snug font-medium text-foreground/85 group-open:text-foreground">
                         {t.subject}
                       </span>
                     </span>
                     <StatusBadge status={t.status} />
                   </div>
-                  <div className="mt-1.5 flex flex-wrap items-center gap-x-1.5 gap-y-1 pl-5 text-[11px] text-muted-foreground">
+                  <div className="mt-1.5 flex flex-wrap items-center gap-x-1.5 gap-y-1 pl-5 text-caption text-muted-foreground">
                     <span className="font-mono">{t.external_id}</span>
                     <span className="text-muted-foreground/50">·</span>
                     <span
@@ -153,14 +153,14 @@ function TicketList({ customerId }: { customerId: string }) {
                   {t.tags.length > 0 && (
                     <div className="mt-1.5 flex flex-wrap gap-1 pl-5">
                       {t.tags.map((tag) => (
-                        <Badge key={tag} className="h-[18px] px-1 text-[10.5px]">
+                        <Badge key={tag} className="h-[18px] px-1 text-micro">
                           #{tag}
                         </Badge>
                       ))}
                     </div>
                   )}
                 </summary>
-                <p className="mt-2.5 pl-5 text-[12.5px] leading-relaxed whitespace-pre-wrap text-foreground/80">
+                <p className="mt-2.5 pl-5 text-small leading-relaxed whitespace-pre-wrap text-foreground/80">
                   {t.body}
                 </p>
               </details>

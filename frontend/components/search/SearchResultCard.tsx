@@ -34,22 +34,22 @@ export function SearchResultCard({
           className={cn(
             "numeric mt-0.5 shrink-0 leading-none font-semibold",
             rank === 1 ? "text-primary" : "text-muted-foreground/70",
-            compact ? "text-[13px]" : "text-[15px]",
+            compact ? "text-ui" : "text-[15px]",
           )}
         >
           {rank}
         </span>
         <div className="min-w-0 flex-1">
           <div
-            className="truncate text-[13.5px] font-medium text-foreground"
+            className="truncate text-body font-medium text-foreground"
             title={result.document_title}
           >
             {result.document_title}
           </div>
-          <div className="truncate text-[12px] text-muted-foreground" title={heading}>
+          <div className="truncate text-meta text-muted-foreground" title={heading}>
             {heading || "(no heading)"}
           </div>
-          <div className="mt-0.5 truncate font-mono text-[10.5px] text-muted-foreground/70">
+          <div className="mt-0.5 truncate font-mono text-micro text-muted-foreground/70">
             {result.filename} · v{result.version_number}
             {page ? ` · ${page}` : ""}
           </div>
@@ -59,7 +59,7 @@ export function SearchResultCard({
         <dl
           className={cn(
             "flex overflow-hidden rounded-md border text-center",
-            compact ? "text-[10.5px]" : "text-[11px]",
+            compact ? "text-micro" : "text-caption",
           )}
         >
           <Score label="dense" value={result.dense_rank != null ? `#${result.dense_rank}` : "—"} />
@@ -73,7 +73,7 @@ export function SearchResultCard({
         <p
           className={cn(
             "mt-3 leading-relaxed whitespace-pre-wrap text-foreground/80",
-            compact ? "text-[12px]" : "text-[13.5px]",
+            compact ? "text-meta" : "text-body",
           )}
         >
           {text}
@@ -81,7 +81,7 @@ export function SearchResultCard({
         {long && (
           <button
             type="button"
-            className="mt-1.5 text-[12px] font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+            className="mt-1.5 text-meta font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
             onClick={() => setExpanded((x) => !x)}
           >
             {expanded ? "Show less" : "Show full chunk"}

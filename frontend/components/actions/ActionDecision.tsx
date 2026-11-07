@@ -38,7 +38,7 @@ export function ActionDecision({
   if (!canDecide(role)) {
     return (
       <p
-        className="flex items-start gap-2 rounded-md border border-dashed px-3 py-2.5 text-[12px] leading-relaxed text-muted-foreground"
+        className="flex items-start gap-2 rounded-md border border-dashed px-3 py-2.5 text-meta leading-relaxed text-muted-foreground"
         data-testid="decision-not-allowed"
       >
         <Icon name="shield" className="mt-px size-3.5 shrink-0" />
@@ -90,10 +90,10 @@ export function ActionDecision({
   return (
     <div className="space-y-3">
       <div className="space-y-1.5">
-        <Label htmlFor={valueId} className="eyebrow text-[0.6875rem] leading-normal">
+        <Label htmlFor={valueId} className="eyebrow text-caption leading-normal">
           Value
           {edited !== value && (
-            <Badge tone="indigo" className="h-4 px-1 font-sans text-[10px] tracking-normal normal-case">
+            <Badge tone="indigo" className="h-4 px-1 font-sans text-micro tracking-normal normal-case">
               edited
             </Badge>
           )}
@@ -132,7 +132,7 @@ export function ActionDecision({
         )}
       </div>
       <div className="space-y-1.5">
-        <Label htmlFor={noteId} className="eyebrow text-[0.6875rem] leading-normal">
+        <Label htmlFor={noteId} className="eyebrow text-caption leading-normal">
           Decision note
         </Label>
         <Input

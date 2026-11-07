@@ -12,7 +12,6 @@ import {
 } from "@/components/ui/input-group";
 import {
   Button,
-  cx,
   EmptyState,
   ErrorBanner,
   PageHeader,
@@ -21,6 +20,7 @@ import {
 } from "@/components/ui";
 import { api, SEARCH_MODES, type SearchMode, type SearchResponse } from "@/lib/api";
 import { formatMs } from "@/lib/format";
+import { cn } from "@/lib/utils";
 
 const MODE_LABELS: Record<SearchMode, string> = {
   dense: "Dense",
@@ -97,7 +97,7 @@ export default function SearchLabPage() {
           <InputGroupInput
             aria-label="Query"
             data-testid="search-query"
-            className="text-[14px]"
+            className="text-ui-lg"
             value={q}
             maxLength={500}
             onChange={(e) => setQ(e.target.value)}
@@ -121,7 +121,7 @@ export default function SearchLabPage() {
               min={1}
               max={20}
               aria-label="k"
-              className="numeric text-[13px]"
+              className="numeric text-ui"
               value={k}
               onChange={(e) => setK(Math.max(1, Math.min(20, Number(e.target.value) || 1)))}
             />
@@ -145,7 +145,7 @@ export default function SearchLabPage() {
             onChange={setMode}
             options={SEARCH_MODES.map((m) => ({ value: m, label: MODE_LABELS[m] }))}
           />
-          <span className="text-[12.5px] text-muted-foreground">{MODE_NOTES[mode]}</span>
+          <span className="text-small text-muted-foreground">{MODE_NOTES[mode]}</span>
         </div>
         <Button onClick={() => void compareAll()} disabled={busy || !q.trim()}>
           <Icon name="layers" className="size-3.5" />
@@ -154,7 +154,7 @@ export default function SearchLabPage() {
       </div>
 
       {busy && (
-        <div className="flex items-center gap-2.5 py-6 text-[13px] text-muted-foreground">
+        <div className="flex items-center gap-2.5 py-6 text-ui text-muted-foreground">
           <Spinner /> Searching…
         </div>
       )}
@@ -169,7 +169,7 @@ export default function SearchLabPage() {
                 <Button
                   key={s}
                   size="sm"
-                  className="font-mono text-[12px]"
+                  className="font-mono text-meta"
                   onClick={() => {
                     setQ(s);
                     void search(s);
@@ -207,17 +207,17 @@ export default function SearchLabPage() {
 function ModeResults({ outcome, compact }: { outcome: Outcome; compact?: boolean }) {
   const r = outcome.response;
   return (
-    <section className={cx(compact && "min-w-0")} data-testid={`results-${outcome.mode}`}>
+    <section className={cn(compact && "min-w-0")} data-testid={`results-${outcome.mode}`}>
       <div className="mb-3 border-b pb-2.5">
         <div className="flex items-baseline justify-between gap-2">
-          <h2 className="text-[14px] font-semibold text-foreground">{MODE_LABELS[outcome.mode]}</h2>
+          <h2 className="text-ui-lg font-semibold text-foreground">{MODE_LABELS[outcome.mode]}</h2>
           {r && (
-            <span className="numeric text-[11.5px] text-muted-foreground">
+            <span className="numeric text-caption text-muted-foreground">
               {r.results.length} · {formatMs(r.latency_ms)}
             </span>
           )}
         </div>
-        <p className="text-[12px] text-muted-foreground">{MODE_NOTES[outcome.mode]}</p>
+        <p className="text-meta text-muted-foreground">{MODE_NOTES[outcome.mode]}</p>
       </div>
       {outcome.error != null && <ErrorBanner error={outcome.error} />}
       {r?.results.length === 0 && (

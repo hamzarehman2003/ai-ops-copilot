@@ -36,10 +36,6 @@ import { Icon, type IconName } from "./icons";
 
 export { Skeleton };
 
-/** Kept for existing call sites; same as `cn` without tailwind-merge. */
-export function cx(...classes: (string | false | null | undefined)[]) {
-  return classes.filter(Boolean).join(" ");
-}
 
 // ---------- Buttons ----------
 
@@ -155,7 +151,7 @@ export function StatusBadge({ status, className }: { status: string; className?:
     <ShadBadge
       variant="outline"
       className={cn(
-        "h-[22px] gap-1.5 rounded-sm px-2 text-[10.5px] tracking-[0.08em] uppercase",
+        "h-[22px] gap-1.5 rounded-sm px-2 text-micro tracking-[0.08em] uppercase",
         TONES[STATUS_TONES[status] ?? "gray"],
         className,
       )}
@@ -204,7 +200,7 @@ export function Panel({
       </CardHeader>
       <CardContent className={cn("flex-1", bodyClassName)}>{children}</CardContent>
       {footer && (
-        <CardFooter className="gap-2 border-t bg-muted/40 py-3 text-[13px] text-muted-foreground">
+        <CardFooter className="gap-2 border-t bg-muted/40 py-3 text-ui text-muted-foreground">
           {footer}
         </CardFooter>
       )}
@@ -295,9 +291,9 @@ export function StatTile({
             {value}
           </span>
         )}
-        {unit && !loading && <span className="text-[13px] text-muted-foreground">{unit}</span>}
+        {unit && !loading && <span className="text-ui text-muted-foreground">{unit}</span>}
       </div>
-      {note && <div className="mt-2.5 text-[13px] leading-snug text-muted-foreground">{note}</div>}
+      {note && <div className="mt-2.5 text-ui leading-snug text-muted-foreground">{note}</div>}
     </Card>
   );
 }
@@ -319,7 +315,7 @@ export function Spinner({ className }: { className?: string }) {
 
 export function Loading({ label = "Loading…" }: { label?: string }) {
   return (
-    <div className="flex items-center gap-2.5 px-1 py-8 text-[13px] text-muted-foreground">
+    <div className="flex items-center gap-2.5 px-1 py-8 text-ui text-muted-foreground">
       <Spinner /> {label}
     </div>
   );
@@ -393,7 +389,7 @@ export function JsonView({ value, className }: { value: unknown; className?: str
   return (
     <pre
       className={cn(
-        "max-h-80 overflow-auto rounded-lg bg-code p-3.5 font-mono text-[11.5px] leading-relaxed text-code-foreground",
+        "max-h-80 overflow-auto rounded-lg bg-code p-3.5 font-mono text-caption leading-relaxed text-code-foreground",
         className,
       )}
     >
@@ -413,7 +409,7 @@ export function MeterBar({ value, label }: { value: number; label?: string }) {
           style={{ width: `${pct}%` }}
         />
       </div>
-      <span className="numeric text-[11px] text-muted-foreground">{Math.round(pct)}%</span>
+      <span className="numeric text-caption text-muted-foreground">{Math.round(pct)}%</span>
     </div>
   );
 }
@@ -468,7 +464,7 @@ export function Tabs<T extends string>({
           <TabsTrigger
             key={o.value}
             value={o.value}
-            className="flex-none px-0.5 text-[14px] after:bottom-[-1px]!"
+            className="flex-none px-0.5 text-ui-lg after:bottom-[-1px]!"
           >
             {o.label}
           </TabsTrigger>
@@ -502,7 +498,7 @@ export function Segmented<T extends string>({
         <ToggleGroupItem
           key={o.value}
           value={o.value}
-          className="h-8 px-3 text-[13px] data-[state=on]:bg-primary/10 data-[state=on]:text-primary"
+          className="h-8 px-3 text-ui data-[state=on]:bg-primary/10 data-[state=on]:text-primary"
         >
           {o.label}
         </ToggleGroupItem>
@@ -517,4 +513,4 @@ export function Segmented<T extends string>({
 export const inputClass =
   "w-full min-w-0 rounded-md border border-input bg-card px-3 py-2 text-sm shadow-card transition-[color,box-shadow] outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30 disabled:pointer-events-none disabled:opacity-50";
 
-export const labelClass = "block text-[13px] font-medium text-foreground/80";
+export const labelClass = "block text-ui font-medium text-foreground/80";

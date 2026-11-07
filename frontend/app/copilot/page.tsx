@@ -131,7 +131,7 @@ export default function CopilotPage() {
                 <p className="mt-1.5 text-[20px] font-semibold tracking-[-0.02em] text-foreground">
                   Start with a question.
                 </p>
-                <p className="mt-1.5 text-[13.5px] text-muted-foreground">
+                <p className="mt-1.5 text-body text-muted-foreground">
                   {customerId
                     ? "The copilot can now read this customer's account. Ask anything, or try one of these."
                     : "Pick a customer on the left to let the copilot read their account, or try one of these."}
@@ -152,7 +152,7 @@ export default function CopilotPage() {
                           className="size-3.5 -translate-x-1 text-muted-foreground opacity-0 transition-[opacity,translate] group-hover:translate-x-0 group-hover:opacity-100"
                         />
                       </span>
-                      <span className="text-[13.5px] leading-snug text-foreground/85 group-hover:text-foreground">
+                      <span className="text-body leading-snug text-foreground/85 group-hover:text-foreground">
                         {ex.q}
                       </span>
                     </button>
@@ -163,7 +163,7 @@ export default function CopilotPage() {
             {turns.map((turn) =>
               turn.kind === "user" ? (
                 <div key={turn.id} className="flex animate-rise justify-end">
-                  <div className="max-w-[80%] rounded-lg rounded-br-sm bg-primary px-4 py-2.5 text-[14px] leading-relaxed whitespace-pre-wrap text-primary-foreground shadow-card">
+                  <div className="max-w-[80%] rounded-lg rounded-br-sm bg-primary px-4 py-2.5 text-ui-lg leading-relaxed whitespace-pre-wrap text-primary-foreground shadow-card">
                     {turn.text}
                   </div>
                 </div>
@@ -221,7 +221,7 @@ export default function CopilotPage() {
                   }}
                 />
                 <InputGroupAddon align="block-end" className="gap-1.5 px-3.5">
-                  <InputGroupText className="hidden gap-1 text-[11.5px] font-normal text-muted-foreground/80 sm:flex">
+                  <InputGroupText className="hidden gap-1 text-caption font-normal text-muted-foreground/80 sm:flex">
                     <Kbd>Enter</Kbd> to send · <Kbd>Shift</Kbd>+<Kbd>Enter</Kbd> new line
                   </InputGroupText>
                   <InputGroupButton
@@ -241,7 +241,7 @@ export default function CopilotPage() {
                 </InputGroupAddon>
               </InputGroup>
             </form>
-            <p className="mt-2 px-1 text-[11.5px] text-muted-foreground/70">
+            <p className="mt-2 px-1 text-caption text-muted-foreground/70">
               Answers cite their sources or abstain. Write actions always wait for a human.
             </p>
           </div>

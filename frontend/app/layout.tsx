@@ -39,7 +39,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       suppressHydrationWarning // next-themes sets the theme class before React loads
       className={`${plexSans.variable} ${plexMono.variable}`}
     >
-      <body className="min-h-screen text-[14px]">
+      <body className="min-h-screen text-ui-lg">
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
           <TooltipProvider delayDuration={300}>
             <UserProvider>

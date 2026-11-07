@@ -84,7 +84,7 @@ function TabLabel({ label, count }: { label: string; count: number }) {
   return (
     <span className="inline-flex items-center gap-2">
       {label}
-      <Badge className="h-[18px] rounded-full px-1.5 text-[10.5px]">{count}</Badge>
+      <Badge className="h-[18px] rounded-full px-1.5 text-micro">{count}</Badge>
     </span>
   );
 }
@@ -103,29 +103,29 @@ function ActionRow({ action, onDecided }: { action: Action; onDecided: (a: Actio
                 </h2>
               </div>
               <StatusBadge status={action.status} className="mt-1" />
-              <span className="ml-auto pt-0.5 text-[12px] text-muted-foreground">
+              <span className="ml-auto pt-0.5 text-meta text-muted-foreground">
                 {timeAgo(action.created_at)}
               </span>
             </div>
-            <div className="text-[13px] text-foreground/80">
+            <div className="text-ui text-foreground/80">
               <span className="font-medium text-foreground">{action.customer}</span>
               <span className="mx-1.5 text-muted-foreground/50">/</span>
-              <span className="font-mono text-[12px]">{action.ticket}</span>
+              <span className="font-mono text-meta">{action.ticket}</span>
               <span className="mx-1.5 text-muted-foreground/50">/</span>
               {action.ticket_subject}
             </div>
             <div className="rounded-md border bg-muted/40 px-3.5 py-2.5">
               <div className="eyebrow mb-1">Proposed value</div>
-              <div className="text-[13.5px] whitespace-pre-wrap text-foreground">{action.value}</div>
+              <div className="text-body whitespace-pre-wrap text-foreground">{action.value}</div>
             </div>
             {action.reason && (
-              <p className="text-[13px] leading-relaxed text-foreground/80">
+              <p className="text-ui leading-relaxed text-foreground/80">
                 <span className="text-muted-foreground">Why: </span>
                 {action.reason}
               </p>
             )}
           </div>
-          <p className="border-t bg-muted/40 px-5 py-2.5 font-mono text-[10.5px] text-muted-foreground">
+          <p className="border-t bg-muted/40 px-5 py-2.5 font-mono text-micro text-muted-foreground">
             proposed by {shortId(action.proposed_by)}
             {action.decided_by && ` · decided by ${shortId(action.decided_by)}`}
             {action.message_id && ` · message ${shortId(action.message_id)}`}

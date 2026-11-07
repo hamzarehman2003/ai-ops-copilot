@@ -88,7 +88,7 @@ function Report({ data }: { data: EvalReport }) {
 
   return (
     <div className="space-y-4" data-testid="eval-report">
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-[11.5px] text-muted-foreground">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-caption text-muted-foreground">
         {data.run_id != null && (
           <span>
             run <span className="text-foreground">{String(data.run_id)}</span>
@@ -170,7 +170,7 @@ function Report({ data }: { data: EvalReport }) {
                   {Object.entries(dataset.by_category).map(([name, count]) => (
                     <span
                       key={name}
-                      className="rounded-sm border bg-muted/40 px-2 py-0.5 text-[12px] text-foreground/80"
+                      className="rounded-sm border bg-muted/40 px-2 py-0.5 text-meta text-foreground/80"
                     >
                       {name.replace(/_/g, " ")}{" "}
                       <span className="numeric text-foreground">{String(count)}</span>
@@ -186,7 +186,7 @@ function Report({ data }: { data: EvalReport }) {
       {failures && (
         <Panel eyebrow="Per-case misses" title={`Failures · ${failures.length}`}>
           {failures.length === 0 ? (
-            <p className="text-[13px] text-success">No failing cases.</p>
+            <p className="text-ui text-success">No failing cases.</p>
           ) : failures.every(isRecord) ? (
             <ScrollArea className="max-h-[32rem] [&>[data-slot=scroll-area-viewport]]:max-h-[32rem] [&_[data-slot=scroll-area-viewport]>div]:block!">
               <RecordTable rows={failures} />

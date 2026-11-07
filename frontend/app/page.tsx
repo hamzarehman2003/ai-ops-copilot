@@ -9,7 +9,6 @@ import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/in
 import { Icon, type IconName } from "@/components/icons";
 import { asModeMetrics, ModeChart, type ModeMetrics } from "@/components/overview/ModeChart";
 import {
-  cx,
   EmptyState,
   ErrorBanner,
   PageHeader,
@@ -28,6 +27,7 @@ import {
 } from "@/lib/api";
 import { formatMs, pct, timeAgo } from "@/lib/format";
 import { useAsync } from "@/lib/useAsync";
+import { cn } from "@/lib/utils";
 
 type Rec = Record<string, unknown>;
 const rec = (v: unknown): Rec | null =>
@@ -181,7 +181,7 @@ export default function OverviewPage() {
           title="Retrieval quality by mode"
           footer={
             r ? (
-              <span className="numeric text-[12px]">
+              <span className="numeric text-meta">
                 run {String(r.run_id)} · p50 {formatMs(num(retrieval?.latency_ms_p50))} per search
               </span>
             ) : undefined
@@ -229,11 +229,11 @@ export default function OverviewPage() {
                   >
                     <span className="min-w-0 flex-1">
                       <span className="block truncate font-medium text-foreground">{a.customer}</span>
-                      <span className="numeric block text-[12px] text-muted-foreground">
+                      <span className="numeric block text-meta text-muted-foreground">
                         {a.ticket} · {timeAgo(a.created_at)}
                       </span>
                     </span>
-                    <span className="hidden min-w-0 flex-1 truncate text-[13.5px] text-foreground/80 md:block">
+                    <span className="hidden min-w-0 flex-1 truncate text-body text-foreground/80 md:block">
                       {a.value}
                     </span>
                     <StatusBadge status={a.status} />
@@ -250,7 +250,7 @@ export default function OverviewPage() {
           title="Answer quality"
           footer={
             latency ? (
-              <span className="numeric text-[12px]">
+              <span className="numeric text-meta">
                 median answer {formatMs(num(latency.answer_p50))}
               </span>
             ) : undefined
@@ -262,7 +262,7 @@ export default function OverviewPage() {
                 const v = num(answers[k]) ?? 0;
                 return (
                   <li key={k}>
-                    <div className="mb-1.5 flex items-baseline justify-between gap-3 text-[13px]">
+                    <div className="mb-1.5 flex items-baseline justify-between gap-3 text-ui">
                       <span className="text-foreground/80">{label}</span>
                       <span className="numeric text-foreground">{pct(v, 0)}%</span>
                     </div>
@@ -295,7 +295,7 @@ export default function OverviewPage() {
               {audit.data.map((e) => (
                 <li key={e.id} className="relative pl-5">
                   <span
-                    className={cx(
+                    className={cn(
                       "absolute top-1.5 left-0 h-2 w-2 rounded-full ring-[3px] ring-card",
                       /fail|reject|denied/.test(e.event_type)
                         ? "bg-destructive"
@@ -304,8 +304,8 @@ export default function OverviewPage() {
                           : "bg-primary",
                     )}
                   />
-                  <div className="text-[13.5px] leading-snug text-foreground">{describeEvent(e)}</div>
-                  <div className="mt-0.5 text-[12px] text-muted-foreground">
+                  <div className="text-body leading-snug text-foreground">{describeEvent(e)}</div>
+                  <div className="mt-0.5 text-meta text-muted-foreground">
                     {e.actor_name ?? "System"} · {timeAgo(e.created_at)}
                   </div>
                 </li>
@@ -336,14 +336,14 @@ export default function OverviewPage() {
                   <FileGlyph type={s.source_type} />
                   <div className="min-w-0 flex-1">
                     <div
-                      className={cx(
-                        "truncate text-[13.5px] text-foreground",
+                      className={cn(
+                        "truncate text-body text-foreground",
                         s.deprecated && "text-muted-foreground line-through decoration-muted-foreground/60",
                       )}
                     >
                       {s.title}
                     </div>
-                    <div className="truncate font-mono text-[11px] text-muted-foreground/60">{s.filename}</div>
+                    <div className="truncate font-mono text-caption text-muted-foreground/60">{s.filename}</div>
                   </div>
                   {s.latest_version && <StatusBadge status={s.latest_version.status} />}
                 </li>
@@ -376,7 +376,7 @@ function LinkButton({
       asChild
       size="lg"
       variant={variant === "primary" ? "default" : "outline"}
-      className={cx(
+      className={cn(
         "px-3.5",
         variant === "primary" ? "shadow-[inset_0_1px_0_rgb(255_255_255/0.14)]" : "bg-card shadow-card",
       )}
@@ -425,7 +425,7 @@ function AskBar() {
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Ask the copilot about a policy, an error code, or a customer…"
-          className="text-[14px]"
+          className="text-ui-lg"
         />
         <InputGroupAddon align="inline-end" className="pr-1.5">
           <ShadButton type="submit" size="lg" className="px-3.5">
@@ -477,8 +477,8 @@ function Pipeline({ meta }: { meta?: Meta }) {
             <span className="absolute top-7 bottom-0 left-[13px] w-px bg-border" aria-hidden />
           )}
           <span
-            className={cx(
-              "numeric relative flex h-[27px] w-[27px] shrink-0 items-center justify-center rounded-full border text-[11px]",
+            className={cn(
+              "numeric relative flex h-[27px] w-[27px] shrink-0 items-center justify-center rounded-full border text-caption",
               i === steps.length - 1
                 ? "border-primary bg-primary text-primary-foreground"
                 : "border-input bg-card text-foreground/80",
@@ -487,8 +487,8 @@ function Pipeline({ meta }: { meta?: Meta }) {
             {i + 1}
           </span>
           <div className="pt-0.5">
-            <div className="text-[14px] font-medium text-foreground">{s.title}</div>
-            <div className="text-[13px] leading-snug text-muted-foreground">{s.detail}</div>
+            <div className="text-ui-lg font-medium text-foreground">{s.title}</div>
+            <div className="text-ui leading-snug text-muted-foreground">{s.detail}</div>
           </div>
         </li>
       ))}
@@ -508,7 +508,7 @@ function Placeholder({ loading, children }: { loading?: boolean; children: React
       ))}
     </div>
   ) : (
-    <p className="py-4 text-[13px] text-muted-foreground">{children}</p>
+    <p className="py-4 text-ui text-muted-foreground">{children}</p>
   );
 }
 

@@ -35,7 +35,7 @@ export function TraceDrawer({
   );
 }
 
-const head = "eyebrow h-9 px-3 text-[0.6875rem] text-muted-foreground";
+const head = "eyebrow h-9 px-3 text-caption text-muted-foreground";
 const num = "numeric px-3 text-right";
 
 function TraceBody({ messageId }: { messageId: string }) {
@@ -48,7 +48,7 @@ function TraceBody({ messageId }: { messageId: string }) {
   return (
     <div className="space-y-6">
       {!r ? (
-        <p className="text-[13px] text-muted-foreground">
+        <p className="text-ui text-muted-foreground">
           No retrieval trace was recorded for this message.
         </p>
       ) : (
@@ -65,7 +65,7 @@ function TraceBody({ messageId }: { messageId: string }) {
             </div>
           </div>
           <Card className="overflow-hidden border">
-            <Table className="text-[12px]" data-testid="trace-table">
+            <Table className="text-meta" data-testid="trace-table">
               <TableHeader className="bg-muted/40">
                 <TableRow className="hover:bg-transparent">
                   <TableHead className={head}>#</TableHead>
@@ -134,7 +134,7 @@ function TraceBody({ messageId }: { messageId: string }) {
 function Disclosure({ label, children }: { label: string; children: ReactNode }) {
   return (
     <Collapsible className="group/disclosure">
-      <CollapsibleTrigger className="inline-flex cursor-pointer items-center gap-1.5 rounded-sm text-[12.5px] font-medium text-foreground/80 outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/30">
+      <CollapsibleTrigger className="inline-flex cursor-pointer items-center gap-1.5 rounded-sm text-small font-medium text-foreground/80 outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/30">
         <Icon
           name="chevronRight"
           className="size-3.5 text-muted-foreground transition-transform group-data-[state=open]/disclosure:rotate-90"

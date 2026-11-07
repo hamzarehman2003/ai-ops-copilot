@@ -39,7 +39,7 @@ export function SystemInfo() {
       <PopoverContent align="end" className="w-[22rem] p-1.5">
         <div className="px-3 pt-2.5 pb-2">
           <p className="eyebrow">System</p>
-          <p className="mt-1 text-[13px] leading-snug text-muted-foreground">
+          <p className="mt-1 text-ui leading-snug text-muted-foreground">
             {error
               ? "The API is unreachable."
               : !meta
@@ -50,7 +50,7 @@ export function SystemInfo() {
           </p>
         </div>
         {meta && (
-          <dl className="divide-y rounded-md border bg-muted/40 text-[13px]">
+          <dl className="divide-y rounded-md border bg-muted/40 text-ui">
             <Row label="LLM">
               {meta.llm.enabled
                 ? `${meta.llm.model}${meta.llm.effort ? ` · effort ${meta.llm.effort}` : ""}`
@@ -76,7 +76,7 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
   return (
     <div className="grid grid-cols-[6.5rem_1fr] gap-3 px-3 py-2">
       <dt className="text-muted-foreground">{label}</dt>
-      <dd className="font-mono text-[11.5px] leading-5 break-all">{children}</dd>
+      <dd className="font-mono text-caption leading-5 break-all">{children}</dd>
     </div>
   );
 }

@@ -12,7 +12,7 @@ export function ToolCallList({ calls }: { calls: ToolCallOut[] }) {
   return (
     <Collapsible asChild>
       <Card className="group/tools border">
-        <CollapsibleTrigger className="flex w-full cursor-pointer items-center gap-2 px-3.5 py-2.5 text-left text-[12.5px] text-foreground/85 transition-colors outline-none hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/30 focus-visible:ring-inset">
+        <CollapsibleTrigger className="flex w-full cursor-pointer items-center gap-2 px-3.5 py-2.5 text-left text-small text-foreground/85 transition-colors outline-none hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/30 focus-visible:ring-inset">
           <Icon
             name="chevronRight"
             className="size-3.5 text-muted-foreground transition-transform group-data-[state=open]/tools:rotate-90"
@@ -45,20 +45,20 @@ function ToolCall({ call: c }: { call: ToolCallOut }) {
   return (
     <Collapsible asChild>
       <Card className="group/call border">
-        <CollapsibleTrigger className="flex w-full cursor-pointer flex-wrap items-center gap-2 px-3 py-2 text-left text-[12px] transition-colors outline-none hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/30 focus-visible:ring-inset">
+        <CollapsibleTrigger className="flex w-full cursor-pointer flex-wrap items-center gap-2 px-3 py-2 text-left text-meta transition-colors outline-none hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/30 focus-visible:ring-inset">
           <Icon
             name="chevronRight"
             className="size-3 text-muted-foreground/70 transition-transform group-data-[state=open]/call:rotate-90"
           />
           {c.source_id && (
-            <span className="rounded-sm border bg-muted px-1.5 font-mono text-[10.5px] font-medium text-foreground/80">
+            <span className="rounded-sm border bg-muted px-1.5 font-mono text-micro font-medium text-foreground/80">
               {c.source_id}
             </span>
           )}
           <span className="font-mono font-medium text-foreground">{c.tool_name}</span>
           <StatusBadge status={c.status} />
           {c.error_code && <span className="font-mono text-destructive">{c.error_code}</span>}
-          <span className="numeric ml-auto text-[11px] text-muted-foreground">
+          <span className="numeric ml-auto text-caption text-muted-foreground">
             {c.attempts} attempt{c.attempts === 1 ? "" : "s"} · {formatMs(c.latency_ms)}
           </span>
         </CollapsibleTrigger>

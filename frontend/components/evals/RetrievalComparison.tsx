@@ -15,7 +15,7 @@ export function RetrievalComparison({ modes }: { modes: Record<string, unknown> 
     string,
     Record<string, unknown>,
   ][];
-  if (rows.length === 0) return <p className="text-[13px] text-muted-foreground/60">No retrieval modes.</p>;
+  if (rows.length === 0) return <p className="text-ui text-muted-foreground/60">No retrieval modes.</p>;
 
   const metrics = Array.from(new Set(rows.flatMap(([, m]) => Object.keys(m))));
   const best: Record<string, number> = {};
@@ -28,7 +28,7 @@ export function RetrievalComparison({ modes }: { modes: Record<string, unknown> 
   }
 
   return (
-    <Table className="text-[13px]" data-testid="retrieval-comparison">
+    <Table className="text-ui" data-testid="retrieval-comparison">
       <TableHeader>
         <TableRow className="hover:bg-transparent">
           <TableHead className={cn(tableHeadClass, "pl-0")}>Mode</TableHead>
@@ -42,7 +42,7 @@ export function RetrievalComparison({ modes }: { modes: Record<string, unknown> 
       <TableBody>
         {rows.map(([mode, values]) => (
           <TableRow key={mode}>
-            <TableCell className="py-2.5 pl-0 font-mono text-[12px] font-medium text-foreground">
+            <TableCell className="py-2.5 pl-0 font-mono text-meta font-medium text-foreground">
               {mode}
             </TableCell>
             {metrics.map((m) => {

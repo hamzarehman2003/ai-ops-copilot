@@ -101,19 +101,19 @@ export function ProgressSteps({ events, startedAt }: { events: ProgressEvent[]; 
   const steps = toSteps(events);
   return (
     <div className="min-w-0 flex-1 pt-0.5" aria-live="polite">
-      <div className="flex items-center gap-2 text-[12px] text-muted-foreground">
+      <div className="flex items-center gap-2 text-meta text-muted-foreground">
         <span className="eyebrow">Working</span>
         <span className="tabular-nums">{((now - startedAt) / 1000).toFixed(1)} s</span>
       </div>
       <ol className="mt-2 space-y-1.5" data-testid="progress-steps">
         {steps.length === 0 && (
-          <li className="flex items-center gap-2.5 text-[13px] text-muted-foreground">
+          <li className="flex items-center gap-2.5 text-ui text-muted-foreground">
             <Spinner className="size-3.5" />
             Starting…
           </li>
         )}
         {steps.map((s) => (
-          <li key={s.key} className="flex animate-rise items-start gap-2.5 text-[13px]" data-state={s.state}>
+          <li key={s.key} className="flex animate-rise items-start gap-2.5 text-ui" data-state={s.state}>
             <span className="mt-0.5 flex size-3.5 shrink-0 items-center justify-center">
               {s.state === "active" ? (
                 <Spinner className="size-3.5" />
@@ -128,7 +128,7 @@ export function ProgressSteps({ events, startedAt }: { events: ProgressEvent[]; 
                 {s.label}
               </span>
               {s.detail && (
-                <span className="ml-2 font-mono text-[11.5px] break-words text-muted-foreground">
+                <span className="ml-2 font-mono text-caption break-words text-muted-foreground">
                   {s.detail}
                 </span>
               )}

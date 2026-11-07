@@ -59,9 +59,9 @@ export function AnswerView({ response }: { response: QueryResponse }) {
 
   return (
     <div className="space-y-4" data-testid="assistant-answer">
-      <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 font-mono text-[11px] text-muted-foreground">
+      <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 font-mono text-caption text-muted-foreground">
         {response.mode === "llm" && (
-          <Badge tone="indigo" className="h-[18px] px-1.5 text-[10px] tracking-[0.08em] uppercase">
+          <Badge tone="indigo" className="h-[18px] px-1.5 text-micro tracking-[0.08em] uppercase">
             LLM
           </Badge>
         )}
@@ -83,7 +83,7 @@ export function AnswerView({ response }: { response: QueryResponse }) {
         >
           <Icon name="info" />
           <AlertTitle>The copilot abstained.</AlertTitle>
-          <AlertDescription className="text-[13px] text-warning/90">
+          <AlertDescription className="text-ui text-warning/90">
             The sources don&apos;t support a confident answer.
             {response.missing_information && (
               <div className="mt-1">Missing information: {response.missing_information}</div>
@@ -95,11 +95,11 @@ export function AnswerView({ response }: { response: QueryResponse }) {
       {response.warnings.map((w, i) => (
         <Alert key={i} className="border-warning/30 bg-warning/10 px-3 py-2 text-warning">
           <Icon name="alert" className="size-3.5" />
-          <AlertDescription className="text-[12.5px] text-warning">{w}</AlertDescription>
+          <AlertDescription className="text-small text-warning">{w}</AlertDescription>
         </Alert>
       ))}
 
-      <div className="text-[14.5px] leading-[1.7] whitespace-pre-wrap text-foreground">
+      <div className="text-reading leading-[1.7] whitespace-pre-wrap text-foreground">
         {renderAnswer(response.answer, known, tools, highlight, focusSource)}
       </div>
 
@@ -195,7 +195,7 @@ function renderAnswer(
             <span
               tabIndex={0}
               data-testid="tool-citation-chip"
-              className="mx-0.5 inline-flex h-[18px] -translate-y-px items-center rounded-sm border border-primary/25 bg-primary/10 px-1.5 align-middle font-mono text-[10.5px] font-medium text-primary outline-none focus-visible:ring-3 focus-visible:ring-ring/40"
+              className="mx-0.5 inline-flex h-[18px] -translate-y-px items-center rounded-sm border border-primary/25 bg-primary/10 px-1.5 align-middle font-mono text-micro font-medium text-primary outline-none focus-visible:ring-3 focus-visible:ring-ring/40"
             >
               {sid}
             </span>
@@ -213,7 +213,7 @@ function renderAnswer(
               data-testid="citation-chip"
               onClick={() => onClick(sid)}
               className={cn(
-                "mx-0.5 inline-flex h-[18px] -translate-y-px items-center rounded-sm border px-1.5 align-middle font-mono text-[10.5px] font-medium whitespace-normal transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/40",
+                "mx-0.5 inline-flex h-[18px] -translate-y-px items-center rounded-sm border px-1.5 align-middle font-mono text-micro font-medium whitespace-normal transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/40",
                 highlight === sid
                   ? "border-primary bg-primary text-primary-foreground"
                   : "bg-muted text-foreground/80 hover:border-primary/30 hover:bg-primary/10 hover:text-primary",
@@ -231,7 +231,7 @@ function renderAnswer(
         // A marker that doesn't match any retrieved source: show it, flagged.
         <span
           key={`c${idx}`}
-          className="mx-0.5 rounded-sm border border-destructive/30 bg-destructive/10 px-1.5 font-mono text-[10.5px] text-destructive"
+          className="mx-0.5 rounded-sm border border-destructive/30 bg-destructive/10 px-1.5 font-mono text-micro text-destructive"
           title="Unknown source marker"
         >
           {sid}?
@@ -264,7 +264,7 @@ function Feedback({ messageId }: { messageId: string }) {
   };
 
   return (
-    <div className="flex items-center gap-1 text-[12px] text-muted-foreground">
+    <div className="flex items-center gap-1 text-meta text-muted-foreground">
       <span className="mr-1">{sent ? "Thanks, recorded." : "Was this helpful?"}</span>
       {(["helpful", "unhelpful"] as const).map((v) => (
         <ShadButton

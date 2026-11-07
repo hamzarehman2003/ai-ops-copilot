@@ -17,7 +17,7 @@ const MS_KEY = /(^|_)(ms|latency)|_ms$|latency/i;
 
 /** Small-caps ledger header used by every eval table. */
 export const tableHeadClass =
-  "h-9 text-[10.5px] font-medium tracking-[0.1em] text-muted-foreground uppercase";
+  "h-9 text-micro font-medium tracking-[0.1em] text-muted-foreground uppercase";
 
 export function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
@@ -66,9 +66,9 @@ export function KeyValueTable({
   parentKey?: string;
 }) {
   const entries = Object.entries(data).filter(([k]) => !omit.includes(k));
-  if (entries.length === 0) return <span className="text-[13px] text-muted-foreground/60">No data</span>;
+  if (entries.length === 0) return <span className="text-ui text-muted-foreground/60">No data</span>;
   return (
-    <Table className={cn("text-[13px]", nested && "text-[12px]")}>
+    <Table className={cn("text-ui", nested && "text-meta")}>
       <TableBody>
         {entries.map(([k, v]) => (
           <TableRow key={k} className="align-top">
@@ -95,7 +95,7 @@ export function KeyValueTable({
 export function RecordTable({ rows }: { rows: Record<string, unknown>[] }) {
   const columns = Array.from(new Set(rows.flatMap((r) => Object.keys(r))));
   return (
-    <Table className="text-[12px]">
+    <Table className="text-meta">
       <TableHeader>
         <TableRow className="hover:bg-transparent">
           {columns.map((c) => (

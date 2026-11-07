@@ -36,7 +36,7 @@ function ChunkList({ documentId }: { documentId: string }) {
   const tokens = data.reduce((sum, c) => sum + c.token_count, 0);
   return (
     <div className="space-y-3">
-      <dl className="flex flex-wrap items-center gap-x-5 gap-y-1 text-[12px] text-muted-foreground">
+      <dl className="flex flex-wrap items-center gap-x-5 gap-y-1 text-meta text-muted-foreground">
         <div className="flex items-baseline gap-1.5">
           <dt className="eyebrow">Chunks</dt>
           <dd className="numeric text-foreground">{data.length}</dd>
@@ -58,7 +58,7 @@ function ChunkList({ documentId }: { documentId: string }) {
             className="gap-0 rounded-lg border py-0 shadow-card ring-0"
             data-testid="chunk"
           >
-            <CardHeader className="flex flex-wrap items-center gap-2 bg-muted/40 px-3 py-2 text-[12px]">
+            <CardHeader className="flex flex-wrap items-center gap-2 bg-muted/40 px-3 py-2 text-meta">
               <span className="numeric text-muted-foreground">#{c.chunk_index}</span>
               <span className="font-medium text-foreground">
                 {c.heading_path.length ? c.heading_path.join(" › ") : "(no heading)"}
@@ -75,7 +75,7 @@ function ChunkList({ documentId }: { documentId: string }) {
             </CardHeader>
             <Separator />
             <CardContent className="p-0">
-              <pre className="max-h-72 overflow-auto p-3 font-sans text-[12px] leading-relaxed whitespace-pre-wrap text-foreground/80">
+              <pre className="max-h-72 overflow-auto p-3 font-sans text-meta leading-relaxed whitespace-pre-wrap text-foreground/80">
                 {c.content}
               </pre>
             </CardContent>

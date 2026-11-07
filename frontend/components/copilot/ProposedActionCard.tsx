@@ -25,33 +25,33 @@ export function ProposedActionCard({ proposal }: { proposal: ProposedActionSumma
         </span>
         <div className="min-w-0 flex-1">
           <p className="eyebrow text-primary/80">Proposed action</p>
-          <p className="mt-0.5 flex flex-wrap items-baseline gap-x-2 text-[13.5px] font-medium text-foreground">
+          <p className="mt-0.5 flex flex-wrap items-baseline gap-x-2 text-body font-medium text-foreground">
             {ACTION_LABELS[proposal.type] ?? proposal.type}
-            <span className="font-mono text-[11px] font-normal text-muted-foreground">
+            <span className="font-mono text-caption font-normal text-muted-foreground">
               on {proposal.ticket_id}
             </span>
           </p>
         </div>
         {!decided && proposal.id != null && (
-          <Badge tone="amber" className="h-[22px] px-2 font-sans text-[10.5px] tracking-[0.08em] uppercase">
+          <Badge tone="amber" className="h-[22px] px-2 font-sans text-micro tracking-[0.08em] uppercase">
             Needs approval
           </Badge>
         )}
       </div>
       <div className="p-4">
         {proposal.reason && (
-          <p className="mb-3.5 text-[13px] leading-relaxed text-foreground/80">
+          <p className="mb-3.5 text-ui leading-relaxed text-foreground/80">
             <span className="text-muted-foreground">Why: </span>
             {proposal.reason}
           </p>
         )}
 
         {proposal.id == null ? (
-          <div className="space-y-2 text-[13px]">
+          <div className="space-y-2 text-ui">
             <p className="text-foreground/80">
               Value: <span className="font-medium text-foreground">{proposal.value}</span>
             </p>
-            <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-1.5 text-[12px] text-destructive">
+            <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-1.5 text-meta text-destructive">
               Not recorded{proposal.error ? `: ${proposal.error}` : ""}
             </p>
           </div>

@@ -76,7 +76,7 @@ export function ModeChart({
           onChange={setMetric}
           options={METRICS.map((m) => ({ value: m.value, label: m.label }))}
         />
-        <div className="flex items-center gap-2 text-[12px] text-muted-foreground">
+        <div className="flex items-center gap-2 text-meta text-muted-foreground">
           <span className="h-2 w-2 rounded-[2px] bg-chart-1" aria-hidden />
           default mode
         </div>
@@ -162,10 +162,10 @@ export function ModeChart({
 function ModeTooltip({ row }: { row: Row }) {
   const detail = MODE_LABELS[row.mode]?.detail;
   return (
-    <div className="grid min-w-48 gap-2 rounded-md border bg-popover px-3 py-2.5 text-[12px] text-popover-foreground shadow-card">
+    <div className="grid min-w-48 gap-2 rounded-md border bg-popover px-3 py-2.5 text-meta text-popover-foreground shadow-card">
       <div>
         <div className="font-medium">{row.name}</div>
-        {detail && <div className="text-[11px] text-muted-foreground">{detail}</div>}
+        {detail && <div className="text-caption text-muted-foreground">{detail}</div>}
       </div>
       <dl className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-1">
         {Object.entries(row.metrics).map(([k, val]) => (
