@@ -120,7 +120,8 @@ Host ports: Postgres **5433**, API **8001** (5432/8000 are used by other local p
 
 All `/api/*` routes (except `/api/users`) need header `X-User: <email>` of a seeded user
 (`admin@`, `agent@`, `viewer@tasklane.example`; `admin@`/`agent@acme.example`). **Temporary**
-stand-in for auth, resolved only in `get_current_user` (`app/deps.py`); workspace and role come
+stand-in for auth, resolved only in `get_current_user` (`app/deps.py`) and only while
+`DEMO_AUTH=true` (off: every call 401, `/api/users` 404); workspace and role come
 from that user. Roles via `require_role`: admin = sources; admin/agent = approve/reject.
 
 - Sources: `POST /api/sources` (admin; 201 new / 200 duplicate / 400 / 413 / 415; processing

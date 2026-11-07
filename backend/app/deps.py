@@ -25,14 +25,20 @@ SessionFactoryDep = Annotated[Callable[[], Session], Depends(get_session_factory
 
 def get_current_user(
     session: SessionDep,
+    settings: SettingsDep,
     x_user: Annotated[str | None, Header(description="Email of the signed-in user")] = None,
 ) -> User:
     """Resolve the caller.
 
     TEMPORARY stand-in for real authentication (e.g. OIDC/SSO): it trusts the `X-User`
-    header. Only this function changes when real auth arrives; every route already takes
-    the workspace and role from the User it returns, never from the request body.
+    header, and only when `DEMO_AUTH=true`. Only this function changes when real auth
+    arrives; every route already takes the workspace and role from the User it returns,
+    never from the request body.
     """
+    if not settings.demo_auth:  # fail closed: a deployment never trusts a bare header
+        raise HTTPException(
+            status.HTTP_401_UNAUTHORIZED, "Demo header auth is off and no real auth is set up"
+        )
     if not x_user:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Missing X-User header")
     user = session.scalar(

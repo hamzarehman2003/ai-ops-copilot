@@ -26,8 +26,11 @@ def me(user: CurrentUser) -> dict:
 
 
 @router.get("/users")
-def list_users(session: SessionDep) -> list[dict]:
-    """Users the UI can switch between (stand-in until real auth replaces `get_current_user`)."""
+def list_users(session: SessionDep, settings: SettingsDep) -> list[dict]:
+    """Users the UI can switch between (stand-in until real auth replaces `get_current_user`).
+    Exists only with DEMO_AUTH on: it lists every tenant's users."""
+    if not settings.demo_auth:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Not found")
     users = session.scalars(select(User).order_by(User.email))
     return [
         {

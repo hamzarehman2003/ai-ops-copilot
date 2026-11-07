@@ -32,6 +32,7 @@ services:
       MODEL_CACHE_DIR: /models
       EVAL_RESULTS_DIR: /evals/results
       WARMUP_MODELS: "true"
+      DEMO_AUTH: ${DEMO_AUTH:-true}  # X-User header stand-in for auth (demo only)
       # Optional: without a key the copilot runs in offline (extractive) mode.
       LLM_PROVIDER: ${LLM_PROVIDER:-anthropic}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}

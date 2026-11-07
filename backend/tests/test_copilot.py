@@ -649,3 +649,18 @@ def test_a_failed_rewrite_keeps_the_first_search(indexed):
         llm=llm,
     )
     assert run.mode == "llm" and run.message.data["rewritten_queries"] == []
+
+
+def test_only_the_asker_can_rate_an_answer(client, indexed):
+    body = client.post("/api/copilot/query", headers=AGENT, json={"question": QUESTION}).json()
+    url = f"/api/copilot/messages/{body['message_id']}/feedback"
+    other = {"X-User": "admin@tasklane.example"}  # same workspace, not the asker
+    assert client.post(url, headers=other, json={"feedback": "unhelpful"}).status_code == 404
+    assert client.post(url, headers=AGENT, json={"feedback": "helpful"}).status_code == 204
+
+
+def test_demo_header_auth_can_be_switched_off(client, indexed):
+    off = indexed.settings.model_copy(update={"demo_auth": False})
+    app.dependency_overrides[get_settings] = lambda: off
+    assert client.get("/api/me", headers=AGENT).status_code == 401
+    assert client.get("/api/users").status_code == 404

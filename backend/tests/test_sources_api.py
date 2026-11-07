@@ -269,3 +269,10 @@ def test_the_pipeline_skips_a_version_another_worker_is_processing(
 
     process_version(session, version.id, Settings(upload_dir=upload_dir))
     assert version.status == IngestionStatus.PROCESSING  # untouched: not ours to process
+
+
+def test_an_oversized_upload_is_refused_before_the_body_is_read(client: TestClient):
+    big = b"x" * (MAX_BYTES + 128 * 1024)  # past the limit plus the multipart allowance
+    response = upload(client, "huge.txt", big)
+    assert response.status_code == 413
+    assert "exceeds" in response.json()["detail"]

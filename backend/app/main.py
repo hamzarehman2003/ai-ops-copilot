@@ -2,8 +2,9 @@ import logging
 import threading
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from app.config import get_settings
 from app.routers import copilot, crm, health, meta, sources
@@ -36,6 +37,25 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+MULTIPART_OVERHEAD = 64 * 1024  # boundaries, headers and form fields around the file
+
+
+@app.middleware("http")
+async def reject_oversized_uploads(request: Request, call_next):
+    """Refuse an upload by its Content-Length before the body is read: FastAPI parses (and
+    spools) the multipart body before the route runs, so the route's own size check alone
+    would still write the whole file to disk first."""
+    if request.method == "POST" and request.url.path == "/api/sources":
+        settings = request.app.dependency_overrides.get(get_settings, get_settings)()
+        length = request.headers.get("content-length", "")
+        if length.isdigit() and int(length) > settings.max_upload_bytes + MULTIPART_OVERHEAD:
+            return JSONResponse(
+                {"detail": f"File exceeds {settings.max_upload_bytes} bytes"},
+                status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+            )
+    return await call_next(request)
+
 
 app.include_router(health.router)
 app.include_router(meta.router)

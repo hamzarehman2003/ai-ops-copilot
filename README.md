@@ -167,7 +167,8 @@ Docker Compose stack.
 
 ## Limitations
 
-- Auth is a stand-in (`X-User` header); replace `get_current_user` with real OIDC/SSO.
+- Auth is a stand-in (`X-User` header, only with `DEMO_AUTH=true`, which fails closed when
+  off); replace `get_current_user` with real OIDC/SSO.
 - Ingestion runs in FastAPI BackgroundTasks (with an atomic claim per version, so a crashed
   run can be restarted); production needs a queue and workers.
 - The mock CRM is in-process; faults are simulated.

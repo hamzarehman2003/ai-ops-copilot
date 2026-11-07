@@ -167,3 +167,15 @@ def test_deprecated_documents_are_filtered_inside_the_query(indexed):
     for mode in ("dense", "lexical", "hybrid_rerank"):
         after = search(indexed, question, mode=mode, apply_threshold=False)
         assert "legacy-pricing-faq-2024.md" not in [c.filename for c in after.candidates]
+
+
+def test_dense_search_ignores_vectors_from_another_embedding_model(indexed):
+    """Same dimensions, different model: not comparable, so not searched."""
+    sso_chunks = indexed.session.scalars(
+        select(Chunk).where(Chunk.content.contains("SSO-401"))
+    ).all()
+    for chunk in sso_chunks:
+        chunk.embedding_model = "sentence-transformers/all-MiniLM-L6-v2"
+    indexed.session.flush()
+    result = search(indexed, "What does error SSO-401 mean?", mode="dense", apply_threshold=False)
+    assert all("SSO-401" not in c.content for c in result.candidates)

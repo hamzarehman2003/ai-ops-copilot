@@ -27,6 +27,11 @@ class Settings(BaseSettings):
     rrf_k: int = 60  # Reciprocal Rank Fusion constant
     rerank_top_n: int = 20  # only the best N fused candidates go through the cross-encoder
     min_rerank_score: float = -5.0  # below: "not relevant" (see rag-decisions.md)
+    # Demo stand-in for auth: trust an `X-User: <email>` header (deps.get_current_user) and
+    # list users for the UI's user switcher. Turn off anywhere real: every call is then 401
+    # until real authentication (OIDC/SSO) replaces get_current_user.
+    demo_auth: bool = True
+
     # A version claimed for processing longer ago than this is assumed dead (crash mid-ingest)
     # and can be reindexed again.
     ingestion_stale_after_s: int = 900

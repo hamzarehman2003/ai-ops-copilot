@@ -22,7 +22,7 @@ from app.generation.copilot import (
     tool_source_ids,
 )
 from app.generation.llm import open_llm
-from app.models import Customer, Message, RetrievalTrace, ToolCall, User
+from app.models import Conversation, Customer, Message, RetrievalTrace, ToolCall, User
 from app.retrieval.search import chunk_to_dict, retrieve
 from app.schemas import FeedbackIn, QueryIn
 
@@ -156,13 +156,17 @@ def _response(run: CopilotRun) -> dict:
 
 @router.post("/copilot/messages/{message_id}/feedback", status_code=204)
 def feedback(
-    message_id: uuid.UUID, body: FeedbackIn, workspace: WorkspaceDep, session: SessionDep
+    message_id: uuid.UUID, body: FeedbackIn, user: CurrentUser, session: SessionDep
 ) -> None:
+    """Rate an answer. Only the person who asked can rate it (others get 404)."""
     message = session.scalar(
-        select(Message).where(
+        select(Message)
+        .join(Conversation, Conversation.id == Message.conversation_id)
+        .where(
             Message.id == message_id,
-            Message.workspace_id == workspace.id,
+            Message.workspace_id == user.workspace_id,
             Message.role == "assistant",
+            Conversation.user_id == user.id,
         )
     )
     if message is None:

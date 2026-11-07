@@ -149,6 +149,9 @@ def _dense_search(
                 DocumentVersion.is_current.is_(True),
                 SourceDocument.deprecated.is_(False),
                 Chunk.embedding.is_not(None),
+                # Vectors from different models aren't comparable, even at the same size
+                # (bge-small and all-MiniLM are both 384-d): only the current model's count.
+                Chunk.embedding_model == embedder.model_name,
             )
             .order_by(distance)
             .limit(n)
