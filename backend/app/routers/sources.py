@@ -15,7 +15,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from app.deps import AdminUser, SessionDep, SessionFactoryDep, SettingsDep, WorkspaceDep
-from app.ingestion.pipeline import process_in_background
+from app.ingestion.pipeline import claim_version, process_in_background
 from app.ingestion.upload import UploadError, register_upload
 from app.models import AuditEvent, Chunk, DocumentVersion, IngestionStatus, SourceDocument
 from app.schemas import (
@@ -156,10 +156,14 @@ def reindex_source(
     """Re-process the latest version (e.g. after changing the chunker or embedding model)."""
     document = _document_or_404(session, workspace, document_id)
     version = document.latest_version
-    if version.status == IngestionStatus.PROCESSING:
+    # Atomic claim: two quick clicks can't both start a run; a run that died mid-ingest
+    # (stuck in "processing" past ingestion_stale_after_s) can be restarted.
+    if not claim_version(
+        session, version.id, settings, IngestionStatus.PENDING, claimed_by_reindex=True
+    ):
         raise HTTPException(status.HTTP_409_CONFLICT, "Version is already being processed")
-    version.status = IngestionStatus.PENDING
     session.commit()
+    session.refresh(version)
     background.add_task(process_in_background, session_factory, version.id, settings)
     return VersionOut.model_validate(version)
 

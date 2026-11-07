@@ -13,7 +13,15 @@ from app.generation.copilot import ask
 from app.generation.llm import LLMError, LLMTurn, ToolUse
 from app.generation.prompts import PROMPT_VERSION
 from app.main import app
-from app.models import ActionStatus, Customer, ProposedAction, ToolCallStatus, User
+from app.models import (
+    ActionStatus,
+    Customer,
+    ProposedAction,
+    SourceDocument,
+    ToolCallStatus,
+    User,
+)
+from app.tools.actions import propose_action
 
 
 class FakeLLM:
@@ -522,3 +530,63 @@ def test_stream_for_another_tenants_customer_is_404_before_streaming(client, ind
         json={"question": "status?", "customer_id": str(customer(indexed, "CUST-9001").id)},
     )
     assert response.status_code == 404
+
+
+# --- Tenant isolation on every route that takes an id ----------------------------------------
+
+
+@pytest.fixture
+def acme_ids(indexed) -> dict[str, str]:
+    """One of each object in the *other* workspace (Acme)."""
+    session = indexed.session
+    acme_agent = session.scalar(select(User).where(User.email == "agent@acme.example"))
+    acme_customer = customer(indexed, "CUST-9001")
+    run = ask(session, indexed.settings, acme_agent, "Escalation contact?", customer=acme_customer)
+    action = propose_action(
+        session,
+        workspace_id=acme_agent.workspace_id,
+        customer_id=acme_customer.id,
+        proposed_by=acme_agent,
+        ticket_external_id="TCK-9101",
+        action_type="add_ticket_tag",
+        value="escalation",
+        reason="test",
+    )
+    document = session.scalar(
+        select(SourceDocument).where(SourceDocument.workspace_id == acme_agent.workspace_id)
+    )
+    return {
+        "source": str(document.id),
+        "customer": str(acme_customer.id),
+        "message": str(run.message.id),
+        "action": str(action.id),
+    }
+
+
+@pytest.mark.parametrize(
+    "method,path,body",
+    [
+        ("GET", "/api/sources/{source}", None),
+        ("PATCH", "/api/sources/{source}", {"deprecated": True}),
+        ("POST", "/api/sources/{source}/reindex", None),
+        ("GET", "/api/sources/{source}/chunks", None),
+        ("GET", "/api/customers/{customer}/tickets", None),
+        ("POST", "/api/copilot/query", {"question": "x", "customer_id": "{customer}"}),
+        ("POST", "/api/copilot/messages/{message}/feedback", {"feedback": "helpful"}),
+        ("GET", "/api/copilot/messages/{message}/trace", None),
+        ("POST", "/api/actions/{action}/approve", {}),
+        ("POST", "/api/actions/{action}/reject", {}),
+        ("POST", "/api/actions/{action}/retry", None),
+    ],
+)
+def test_another_workspaces_objects_are_404_on_every_route(client, acme_ids, method, path, body):
+    """Tasklane's admin (every role check passes) must not see or touch any Acme object."""
+    if body is not None:
+        body = json.loads(json.dumps(body).replace("{customer}", acme_ids["customer"]))
+    response = client.request(
+        method,
+        path.format(**acme_ids),
+        headers={"X-User": "admin@tasklane.example"},
+        json=body,
+    )
+    assert response.status_code == 404, response.text

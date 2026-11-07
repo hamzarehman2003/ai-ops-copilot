@@ -1,5 +1,7 @@
 import hashlib
+import uuid
 from collections.abc import Iterator
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -10,6 +12,7 @@ from sqlalchemy.orm import Session
 from app.config import Settings, get_settings
 from app.db import get_session
 from app.deps import get_session_factory
+from app.ingestion.pipeline import claim_version, process_version
 from app.main import app
 from app.models import DocumentVersion, IngestionStatus, User, UserRole, Workspace
 
@@ -203,3 +206,66 @@ def test_list_and_detail_are_scoped_to_workspace(client: TestClient):
     assert other_list.json() == []
     other_detail = client.get(f"/api/sources/{document_id}", headers=as_admin("ws-b"))
     assert other_detail.status_code == 404
+
+
+# --- Reindex claims (no double processing, no version stuck in "processing") -----------------
+
+
+def latest_version(session: Session, document_id: str) -> DocumentVersion:
+    return session.scalar(
+        select(DocumentVersion)
+        .where(DocumentVersion.document_id == uuid.UUID(document_id))
+        .order_by(DocumentVersion.version_number.desc())
+    )
+
+
+def test_reindex_is_refused_while_a_live_run_holds_the_version(
+    client: TestClient, session: Session
+):
+    document_id = upload(client, "refund-policy.md", MARKDOWN).json()["document_id"]
+    version = latest_version(session, document_id)
+    version.status = IngestionStatus.PROCESSING
+    version.processing_started_at = datetime.now(UTC)
+    session.flush()
+
+    response = client.post(f"/api/sources/{document_id}/reindex", headers=as_admin("ws-a"))
+    assert response.status_code == 409
+
+
+def test_a_run_that_died_mid_ingest_can_be_reindexed(client: TestClient, session: Session):
+    document_id = upload(client, "refund-policy.md", MARKDOWN).json()["document_id"]
+    version = latest_version(session, document_id)
+    version.status = IngestionStatus.PROCESSING
+    version.processing_started_at = datetime.now(UTC) - timedelta(hours=1)  # worker crashed
+    session.flush()
+
+    response = client.post(f"/api/sources/{document_id}/reindex", headers=as_admin("ws-a"))
+    assert response.status_code == 202
+    session.refresh(version)
+    assert version.status == IngestionStatus.READY  # the background run finished it
+
+
+def test_only_one_of_two_reindex_clicks_wins(client: TestClient, session: Session):
+    document_id = upload(client, "refund-policy.md", MARKDOWN).json()["document_id"]
+    version = latest_version(session, document_id)
+    settings = Settings()
+    first = claim_version(
+        session, version.id, settings, IngestionStatus.PENDING, claimed_by_reindex=True
+    )
+    second = claim_version(
+        session, version.id, settings, IngestionStatus.PENDING, claimed_by_reindex=True
+    )
+    assert (first, second) == (True, False)
+
+
+def test_the_pipeline_skips_a_version_another_worker_is_processing(
+    client: TestClient, session: Session, upload_dir: Path
+):
+    document_id = upload(client, "refund-policy.md", MARKDOWN).json()["document_id"]
+    version = latest_version(session, document_id)
+    version.status = IngestionStatus.PROCESSING
+    version.processing_started_at = datetime.now(UTC)
+    session.flush()
+
+    process_version(session, version.id, Settings(upload_dir=upload_dir))
+    assert version.status == IngestionStatus.PROCESSING  # untouched: not ours to process

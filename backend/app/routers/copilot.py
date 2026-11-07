@@ -179,11 +179,18 @@ def trace(message_id: uuid.UUID, workspace: WorkspaceDep, session: SessionDep) -
     )
     if message is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Message not found")
+    # Tenant condition on every query (rule 2), even though the message was already scoped.
     retrieval = session.scalar(
-        select(RetrievalTrace).where(RetrievalTrace.message_id == message_id)
+        select(RetrievalTrace).where(
+            RetrievalTrace.message_id == message_id, RetrievalTrace.workspace_id == workspace.id
+        )
     )
-    calls = session.scalars(
-        select(ToolCall).where(ToolCall.message_id == message_id).order_by(ToolCall.created_at)
+    calls = list(
+        session.scalars(
+            select(ToolCall)
+            .where(ToolCall.message_id == message_id, ToolCall.workspace_id == workspace.id)
+            .order_by(ToolCall.created_at)
+        )
     )
     return {
         "message": {"id": message.id, "content": message.content, "data": message.data},

@@ -179,6 +179,9 @@ class DocumentVersion(Base):
         server_default=IngestionStatus.PENDING.value,
     )
     error_message: Mapped[str | None] = mapped_column(Text)
+    # When a worker (or a reindex) claimed this version; a claim older than
+    # `ingestion_stale_after_s` is treated as dead (the process crashed mid-ingest).
+    processing_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     is_current: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     processed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

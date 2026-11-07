@@ -8,9 +8,9 @@ retrieval never sees a half-indexed version and the previous version keeps servi
 import logging
 import uuid
 from collections.abc import Callable
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import delete, update
+from sqlalchemy import delete, func, or_, update
 from sqlalchemy.orm import Session
 
 from app.config import Settings
@@ -32,10 +32,12 @@ def process_version(
     version = session.get(DocumentVersion, version_id)
     if version is None:
         raise ValueError(f"Version {version_id} not found")
-
-    version.status = IngestionStatus.PROCESSING
-    version.error_message = None
+    if not claim_version(session, version_id, settings, IngestionStatus.PROCESSING):
+        logger.info("Version %s is already being processed; skipping", version_id)
+        session.refresh(version)
+        return version
     session.commit()
+    session.refresh(version)
 
     try:
         _index_version(session, version, settings, embedder or get_embedder())
@@ -105,6 +107,36 @@ def _index_version(
         )
     )
     session.commit()
+
+
+def claim_version(
+    session: Session,
+    version_id: uuid.UUID,
+    settings: Settings,
+    new_status: IngestionStatus,
+    *,
+    claimed_by_reindex: bool = False,
+) -> bool:
+    """Atomically take a version for processing: one conditional UPDATE, so two workers (or
+    two reindex clicks) can't both win. Claimable: anything not being worked on, a pending
+    version nobody started yet, or a claim older than `ingestion_stale_after_s` (dead worker).
+    A pending version claimed by a reindex moments ago belongs to its own background task."""
+    v = DocumentVersion
+    stale = datetime.now(UTC) - timedelta(seconds=settings.ingestion_stale_after_s)
+    claimable = or_(
+        v.status.in_([IngestionStatus.READY, IngestionStatus.FAILED]),
+        v.processing_started_at.is_(None),
+        v.processing_started_at < stale,
+    )
+    if not claimed_by_reindex:  # the pipeline may pick up the pending claim of its reindex
+        claimable = or_(claimable, v.status == IngestionStatus.PENDING)
+    claimed = session.execute(
+        update(v)
+        .where(v.id == version_id, claimable)
+        .values(status=new_status, processing_started_at=func.now(), error_message=None)
+        .returning(v.id)
+    ).first()
+    return claimed is not None
 
 
 def process_in_background(
