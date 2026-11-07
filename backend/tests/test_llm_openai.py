@@ -246,6 +246,32 @@ def test_tool_turns_omit_the_schema_when_it_would_block_tool_calls():
     assert "tools" in provider.requests[0]
 
 
+def test_the_tool_or_answer_probe_is_capped():
+    provider = Provider(ok(tool_call_message("call_1", "get_account_status", {}), "tool_calls"))
+    provider.llm(llm_schema_with_tools=False, llm_max_output_tokens=2048).turn(
+        system="s", messages=QUESTION_ONLY, tools=[TOOL], output_schema=ANSWER
+    )
+    assert provider.requests[0]["max_tokens"] == llm_module.PROBE_MAX_TOKENS
+
+
+def test_once_every_tool_was_called_the_answer_is_requested_directly():
+    provider = Provider(ok({"role": "assistant", "content": '{"answer": "a", "citations": []}'}))
+    earlier = tool_call_message("call_1", "get_account_status", {"customer_id": "C1"})
+    messages = [
+        {"role": "user", "content": "q"},
+        {"role": "assistant", "content": earlier},
+        {
+            "role": "user",
+            "content": [{"type": "tool_result", "tool_use_id": "call_1", "content": "{}"}],
+        },
+    ]
+    provider.llm(llm_schema_with_tools=False).turn(
+        system="s", messages=messages, tools=[TOOL], output_schema=ANSWER
+    )
+    assert len(provider.requests) == 1  # no probe
+    assert "tools" not in provider.requests[0] and "response_format" in provider.requests[0]
+
+
 def test_a_free_form_answer_is_re_requested_with_the_schema():
     provider = Provider(
         ok({"role": "assistant", "content": "The workspace is suspended."}),

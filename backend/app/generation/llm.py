@@ -43,6 +43,8 @@ class ToolCallFormatError(LLMError):
     """The server couldn't parse the tool call(s) the model generated (Ollama returns a 500)."""
 
 
+PROBE_MAX_TOKENS = 256  # tool-or-answer probe on servers without schema + tools (see _complete)
+
 # Ollama's tool-call parser errors, e.g. "expected element type <function> but have <parameter>"
 TOOL_FORMAT_ERROR = re.compile(r"expected element type|tool call|parse tool", re.IGNORECASE)
 
@@ -204,6 +206,12 @@ class OpenAICompatLLM:
                 "json_schema": {"name": "answer", "schema": output_schema},
             }
         }
+        if not self.schema_with_tools and tools:
+            used = _called_tools(messages)
+            if all(t["name"] in used for t in tools):
+                # Every tool has been called: nothing left to call, so skip the free-form probe
+                # (it would write a full answer only to be regenerated with the schema).
+                tools = []
         try:
             data, model = self._complete(body, structured, tools, output_schema)
         except ToolCallFormatError:
@@ -231,8 +239,11 @@ class OpenAICompatLLM:
         if tools and not self.schema_with_tools:
             # The schema would block tool calls: let the model choose freely first. If it
             # answered instead of calling a tool, keep that answer when it already fits the
-            # schema, otherwise ask again with the schema enforced (and no tools).
-            data, model = self._post_with_fallback(body | openai_tools)
+            # schema, otherwise ask again with the schema enforced (and no tools). The probe is
+            # capped: a tool call fits easily, and a text answer is cut short instead of being
+            # written in full only to be thrown away.
+            probe = body | openai_tools | {"max_tokens": PROBE_MAX_TOKENS}
+            data, model = self._post_with_fallback(probe)
             message = _first_message(data)
             if not message.get("tool_calls") and not _fits(message.get("content"), output_schema):
                 data, model = self._post_with_fallback(body | structured)
