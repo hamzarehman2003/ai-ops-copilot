@@ -105,7 +105,7 @@ jobs:
     needs: [backend, frontend]
     steps:
       - uses: actions/checkout@v7
-      - name: Start the stack (no LLM key: the copilot runs in offline mode)
+      - name: Start the stack (no LLM key, so the copilot runs in offline mode)
         run: |
           cp .env.example .env
           docker compose up -d --build --wait --wait-timeout 600
