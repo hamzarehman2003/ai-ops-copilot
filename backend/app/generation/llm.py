@@ -39,6 +39,13 @@ class ModelUnavailable(LLMError):
         self.retry_after = retry_after
 
 
+class ToolCallFormatError(LLMError):
+    """The server couldn't parse the tool call(s) the model generated (Ollama returns a 500)."""
+
+
+# Ollama's tool-call parser errors, e.g. "expected element type <function> but have <parameter>"
+TOOL_FORMAT_ERROR = re.compile(r"expected element type|tool call|parse tool", re.IGNORECASE)
+
 # Models whose quota ran out, until when (time.monotonic()). Process-wide because a new
 # adapter is created per request; skipping them avoids a wasted call on every question.
 _EXHAUSTED: dict[str, float] = {}
@@ -197,9 +204,30 @@ class OpenAICompatLLM:
                 "json_schema": {"name": "answer", "schema": output_schema},
             }
         }
+        try:
+            data, model = self._complete(body, structured, tools, output_schema)
+        except ToolCallFormatError:
+            # Small local models (qwen3.5:9b on Ollama) can't emit two tool calls in one turn
+            # in a format their server parses. Offer the tools one at a time, unused ones first;
+            # the copilot loop then simply gets them over consecutive rounds.
+            if len(tools) < 2:
+                raise
+            used = _called_tools(messages)
+            for tool in sorted(tools, key=lambda t: t["name"] in used):
+                try:
+                    data, model = self._complete(body, structured, [tool], output_schema)
+                    break
+                except ToolCallFormatError:
+                    continue
+            else:
+                raise
+        return self._to_turn(data, model)
+
+    def _complete(
+        self, body: dict, structured: dict, tools: list[dict], output_schema: dict
+    ) -> tuple[dict, str]:
         # An empty tools list is rejected by some providers, so "tools" is only sent when set.
         openai_tools = {"tools": [_to_openai_tool(t) for t in tools]} if tools else {}
-
         if tools and not self.schema_with_tools:
             # The schema would block tool calls: let the model choose freely first. If it
             # answered instead of calling a tool, keep that answer when it already fits the
@@ -208,9 +236,8 @@ class OpenAICompatLLM:
             message = _first_message(data)
             if not message.get("tool_calls") and not _fits(message.get("content"), output_schema):
                 data, model = self._post_with_fallback(body | structured)
-        else:
-            data, model = self._post_with_fallback(body | structured | openai_tools)
-        return self._to_turn(data, model)
+            return data, model
+        return self._post_with_fallback(body | structured | openai_tools)
 
     def _to_turn(self, data: dict, model: str) -> LLMTurn:
         message = _first_message(data)
@@ -261,6 +288,9 @@ class OpenAICompatLLM:
                     raise ModelUnavailable(f"{type(exc).__name__}: {exc}") from exc
                 self._sleep(_backoff(attempt))
                 continue
+            if response.status_code >= 500 and TOOL_FORMAT_ERROR.search(response.text):
+                # Not transient: the same prompt produces the same unparseable tool call.
+                raise ToolCallFormatError(f"HTTP {response.status_code}: {_error_text(response)}")
             if response.status_code == 429 or response.status_code >= 500:
                 delay = _retry_after(response)
                 message = f"HTTP {response.status_code}: {_error_text(response)}"
@@ -332,6 +362,21 @@ def _fits(content: str | None, schema: dict) -> bool:
     except json.JSONDecodeError:
         return False
     return isinstance(value, dict) and all(key in value for key in schema.get("required", []))
+
+
+def _called_tools(messages: list) -> set[str]:
+    """Names of the tools already called in this conversation (either message shape)."""
+    names: set[str] = set()
+    for message in messages:
+        content = message["content"]
+        if isinstance(content, dict):  # an OpenAI-style assistant turn returned earlier
+            for call in content.get("tool_calls") or []:
+                names.add((call.get("function") or {}).get("name", ""))
+        elif isinstance(content, list):
+            for block in content:
+                if isinstance(block, dict) and block.get("type") == "tool_use":
+                    names.add(block.get("name", ""))
+    return names
 
 
 def _tool_use(call: dict) -> ToolUse:

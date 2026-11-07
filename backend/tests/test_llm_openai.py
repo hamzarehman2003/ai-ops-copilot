@@ -277,6 +277,58 @@ def test_without_tools_the_schema_is_always_sent():
     assert "response_format" in provider.requests[0]
 
 
+# --- Tool calls the server can't parse (small local models + several tools) --------------------
+
+TICKETS = {
+    "name": "get_recent_tickets",
+    "description": "Recent tickets",
+    "input_schema": {"type": "object", "properties": {"customer_id": {"type": "string"}}},
+}
+UNPARSEABLE = (
+    500,
+    {"error": {"message": "expected element type <function> but have <parameter>"}},
+    {},
+)
+
+
+def test_unparseable_tool_calls_are_retried_one_tool_at_a_time():
+    provider = Provider(
+        UNPARSEABLE,
+        ok(tool_call_message("call_1", "get_account_status", {"customer_id": "C1"}), "tool_calls"),
+    )
+    turn = provider.llm().turn(
+        system="s", messages=QUESTION_ONLY, tools=[TOOL, TICKETS], output_schema=SCHEMA
+    )
+    assert turn.tool_uses[0].name == "get_account_status"
+    assert provider.sleeps == []  # not a transient error: no backoff, no same-request retry
+    assert [len(r["tools"]) for r in provider.requests] == [2, 1]
+
+
+def test_the_one_tool_retry_offers_tools_not_called_yet_first():
+    provider = Provider(
+        UNPARSEABLE,
+        ok(tool_call_message("call_2", "get_recent_tickets", {"customer_id": "C1"}), "tool_calls"),
+    )
+    earlier = tool_call_message("call_1", "get_account_status", {"customer_id": "C1"})
+    messages = [
+        {"role": "user", "content": "q"},
+        {"role": "assistant", "content": earlier},
+        {
+            "role": "user",
+            "content": [{"type": "tool_result", "tool_use_id": "call_1", "content": "{}"}],
+        },
+    ]
+    provider.llm().turn(system="s", messages=messages, tools=[TOOL, TICKETS], output_schema=SCHEMA)
+    assert provider.requests[1]["tools"][0]["function"]["name"] == "get_recent_tickets"
+
+
+def test_unparseable_with_a_single_tool_is_an_error():
+    provider = Provider(UNPARSEABLE)
+    with pytest.raises(LLMError, match="expected element type"):
+        provider.llm().turn(system="s", messages=QUESTION_ONLY, tools=[TOOL], output_schema=SCHEMA)
+    assert len(provider.requests) == 1
+
+
 # --- Fallback models (free tiers have small per-model daily quotas) ----------------------------
 
 DAILY_QUOTA = [

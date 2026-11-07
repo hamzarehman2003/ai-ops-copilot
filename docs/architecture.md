@@ -60,7 +60,10 @@ Local models (Ollama): a JSON schema in `response_format` turns on grammar-const
 which leaves the model no way to emit a tool call (it answers without checking the account).
 With `LLM_SCHEMA_WITH_TOOLS=false`, tool turns go out without the schema; if the model answers
 instead of calling a tool and its reply is not already the JSON answer, the turn is re-sent
-once with the schema and no tools. The demo machine (RTX 3060, 12 GB) runs `qwen3.5:9b` with
+once with the schema and no tools. When a small model emits two tool calls in one turn that the
+server can't parse (Ollama returns HTTP 500 "expected element type <function>"), the adapter
+re-sends that turn offering one tool at a time, unused tools first, instead of retrying the
+same request (which fails the same way). The demo machine (RTX 3060, 12 GB) runs `qwen3.5:9b` with
 thinking off and temperature 0.3. In a 2026-11-07 scenario comparison it handled the tool
 calls, injection and abstention cases; gemma4:12b timed out or returned unparseable JSON, and
 qwen3:14b skipped tools and spilled onto the CPU. Thinking on doubled to quadrupled latency
