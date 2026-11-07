@@ -22,8 +22,7 @@ out/
 # Uploaded source files (local runs; Docker uses the `uploads` volume)
 backend/uploads/
 
-# Eval outputs (keep committed summaries in evals/reports/ if desired)
-evals/runs/
+# Eval results in evals/results/ are committed on purpose (the dashboard reads latest.json)
 
 # OS / editor
 .DS_Store
