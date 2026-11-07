@@ -54,6 +54,7 @@ def meta(workspace: WorkspaceDep, session: SessionDep, settings: SettingsDep) ->
     return {
         "llm": {
             "enabled": settings.llm_enabled,
+            "provider": settings.llm_provider if settings.llm_enabled else None,
             "model": settings.llm_model if settings.llm_enabled else None,
             "effort": settings.llm_effort if settings.llm_enabled else None,
         },

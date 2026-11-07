@@ -25,7 +25,9 @@ run after human approval. Full spec: [docs/spec.md](docs/spec.md).
 - Frontend: Next.js + React + TypeScript + Tailwind (`frontend/`, port 3002)
 - Backend: Python 3.12, FastAPI, Pydantic, SQLAlchemy 2 (sync) + psycopg 3, Alembic (`backend/`)
 - DB: PostgreSQL + pgvector (one vector store only)
-- LLM: one provider behind a small adapter; structured outputs + tool calling
+- LLM: small adapter (`generation/llm.py`), two backends: Anthropic Claude, or any
+  OpenAI-compatible API (Gemini, Ollama, Groq, OpenAI) chosen by `LLM_PROVIDER`; structured
+  outputs + tool calling. The copilot loop and all checks are provider-independent
 - No LangGraph / agent framework for v1: approval is a state column on `ProposedAction`
 - Ingestion runs via FastAPI `BackgroundTasks` (no separate worker for v1)
 - Tracing: our own `RetrievalTrace` / `ToolCall` tables first; Langfuse optional later
@@ -43,7 +45,7 @@ backend/
     routers/              FastAPI routes (health, sources, copilot, actions...)
     ingestion/            upload -> parse -> chunk -> embed -> index (pipeline.py)
     retrieval/            dense + lexical -> RRF -> cross-encoder rerank -> threshold
-    generation/           prompt, LLM adapter (Claude), copilot loop, grounding checks
+    generation/           prompt, LLM adapters (Claude / OpenAI-compatible), copilot loop, grounding checks
     tools/                read-only tool registry (authz, timeouts, retries), mock CRM, actions
     seed.py               synthetic workspaces/users/customers/tickets
   scripts/                one-off scripts (e.g. build_demo_pdf.py)
@@ -100,7 +102,15 @@ Host ports: Postgres **5433**, API **8001** (5432/8000 are used by other local p
   `latest.json`, and a per-case CSV. `--llm` calls the real model (costs money).
 - Embedding/reranker models download on first use to `backend/.cache/models` (Docker: `models`
   volume). The first test run downloads them (~150 MB).
-- LLM: set `ANTHROPIC_API_KEY` in `.env`; without it the copilot runs in offline mode.
+- LLM: set `ANTHROPIC_API_KEY` in `.env`, or `LLM_PROVIDER=openai` + `LLM_BASE_URL` +
+  `LLM_API_KEY` + `LLM_MODEL` for Gemini (free tier) / Ollama / Groq (see `.env.example`);
+  without a key the copilot runs in offline mode. Tests never call a real model
+  (`conftest.py` clears the keys; adapter tests use a mocked transport, `test_llm_openai.py`).
+  Free tiers have small per-model daily quotas: `LLM_FALLBACK_MODELS` (comma-separated) are
+  tried when the model is out of quota/overloaded; exhausted models are skipped until reset.
+- Reset the demo before a recording/rehearsal (clears conversations, actions, CRM changes,
+  deprecated flags, docs uploaded during the demo; keeps users + indexed demo docs):
+  `docker compose exec api python -m scripts.reset_demo --yes` (logic in `app/demo_reset.py`).
 
 ## API (so far)
 
@@ -113,6 +123,8 @@ from that user. Roles via `require_role`: admin = sources; admin/agent = approve
   starts in the background), `GET /api/sources[/{id}]`, `PATCH /api/sources/{id}`
   `{deprecated}`, `POST /api/sources/{id}/reindex`, `GET /api/sources/{id}/chunks`.
 - Copilot: `POST /api/copilot/query` `{question, customer_id?, conversation_id?}`,
+  `POST /api/copilot/query/stream` (same body; Server-Sent Events: `progress` steps, then one
+  `result` with the /query body; the Copilot page uses this),
   `POST /api/copilot/messages/{id}/feedback`, `GET /api/copilot/messages/{id}/trace`,
   `GET /api/search?q=&mode=&k=` (retrieval only).
 - CRM/actions: `GET /api/customers`, `GET /api/customers/{id}/tickets`,

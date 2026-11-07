@@ -15,6 +15,7 @@ import json
 import re
 import time
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass, field
 
 from pydantic import BaseModel, ValidationError
@@ -37,6 +38,7 @@ from app.tools.actions import ActionError, payload_value, propose_action
 from app.tools.registry import READ_TOOLS, ToolContext, run_tool
 
 CITATION = re.compile(r"\[(S\d+)\]")
+Progress = Callable[[dict], None]  # receives {"step": ..., ...} as the run advances (UI only)
 HISTORY_MESSAGES = 6
 NO_EVIDENCE = (
     "I couldn't find enough evidence in the knowledge base or the account tools to answer "
@@ -84,9 +86,13 @@ def ask(
     conversation_id: uuid.UUID | None = None,
     llm: LLM | None = None,
     retrieval_mode: str | None = None,
+    on_progress: Progress | None = None,
 ) -> CopilotRun:
     """Answer one question. The caller has already checked that `customer` is in the user's
-    workspace; this function re-scopes everything to user.workspace_id anyway."""
+    workspace; this function re-scopes everything to user.workspace_id anyway.
+
+    `on_progress` only reports what is happening (for a live UI); it never changes the run."""
+    emit = on_progress or (lambda event: None)
     started = time.perf_counter()
     workspace_id = user.workspace_id
     conversation, history = _conversation(session, user, customer, conversation_id)
@@ -105,8 +111,17 @@ def ask(
     session.add(message)
     session.flush()  # ids for traces / tool calls
 
+    emit({"step": "retrieving"})
     retrieval = retrieve(
         session, workspace_id, question, settings, mode=retrieval_mode, message_id=message.id
+    )
+    emit(
+        {
+            "step": "retrieved",
+            "count": len(retrieval.chunks),
+            "documents": list(dict.fromkeys(c.document_title for c in retrieval.chunks)),
+            "latency_ms": retrieval.latency_ms,
+        }
     )
     ctx = ToolContext(
         session=session,
@@ -121,14 +136,16 @@ def ask(
     if llm is not None:
         try:
             payload, model = _run_llm(
-                llm, settings, question, retrieval.chunks, customer, ctx, history
+                llm, settings, question, retrieval.chunks, customer, ctx, history, emit
             )
             mode = "llm"
         except LLMError as exc:
             warnings.append(f"The language model is unavailable ({exc}); showing evidence instead.")
+            emit({"step": "llm_failed", "error": str(exc)})
     if payload is None:
-        payload = _offline_answer(retrieval.chunks, customer, ctx)
+        payload = _offline_answer(retrieval.chunks, customer, ctx, emit)
 
+    emit({"step": "checking"})
     payload = _enforce_grounding(payload, retrieval.chunks, ctx, warnings)
     run = CopilotRun(conversation, message, retrieval, ctx, payload, mode, model, warnings)
     _maybe_propose(session, run, user, customer)
@@ -168,6 +185,7 @@ def _run_llm(
     customer: Customer | None,
     ctx: ToolContext,
     history: list[dict],
+    emit: Progress,
 ) -> tuple[AnswerPayload, str]:
     label = f"{customer.external_id} ({customer.name})" if customer else None
     messages = [
@@ -177,6 +195,7 @@ def _run_llm(
     tools = [spec.api_definition() for spec in READ_TOOLS.values()] if customer else []
 
     for round_number in range(settings.llm_max_tool_rounds + 1):
+        emit({"step": "model", "round": round_number + 1, "model": llm.model})
         turn = llm.turn(
             system=SYSTEM_PROMPT, messages=messages, tools=tools, output_schema=ANSWER_SCHEMA
         )
@@ -191,7 +210,7 @@ def _run_llm(
             messages.append({"role": "assistant", "content": turn.content})
             results = []
             for tool_use in turn.tool_uses:  # all results go back in ONE user message
-                outcome = run_tool(ctx, tool_use.name, tool_use.input)
+                outcome = _run_tool(ctx, tool_use.name, tool_use.input, emit)
                 results.append(
                     {
                         "type": "tool_result",
@@ -213,11 +232,11 @@ def _run_llm(
 
 
 def _offline_answer(
-    chunks: list[RetrievedChunk], customer: Customer | None, ctx: ToolContext
+    chunks: list[RetrievedChunk], customer: Customer | None, ctx: ToolContext, emit: Progress
 ) -> AnswerPayload:
     lines = []
     if customer is not None:
-        outcome = run_tool(ctx, "get_account_status", {"customer_id": customer.external_id})
+        outcome = _run_tool(ctx, "get_account_status", {"customer_id": customer.external_id}, emit)
         if outcome.ok:
             a = outcome.result
             lines.append(
@@ -305,6 +324,13 @@ def _abstain(reason: str) -> AnswerPayload:
 
 
 # --- Helpers ---------------------------------------------------------------------------------
+
+
+def _run_tool(ctx: ToolContext, name: str, arguments: dict, emit: Progress):
+    emit({"step": "tool", "name": name})
+    outcome = run_tool(ctx, name, arguments)
+    emit({"step": "tool_done", "name": name, "ok": outcome.ok, "error": outcome.error_code})
+    return outcome
 
 
 def _conversation(

@@ -8,7 +8,7 @@
    routers/        sources · copilot · crm (customers, actions, audit) · meta
    ingestion/      upload → parse → chunk → embed → index      (BackgroundTasks)
    retrieval/      dense + lexical → RRF → cross-encoder rerank → threshold
-   generation/     prompt · LLM adapter (Claude) · copilot orchestration · grounding checks
+   generation/     prompt · LLM adapters (Claude / OpenAI-compatible) · copilot orchestration · grounding checks
    tools/          read-only tool registry · mock CRM · proposed actions (approve → execute)
    ▼
  PostgreSQL 17 + pgvector  (one store for documents, vectors, CRM data, traces, audit)
@@ -45,6 +45,20 @@ Every query writes a `retrieval_traces` row (all candidates with dense/lexical r
    citation and no tool evidence → abstain; a proposed action is validated (allow-listed type,
    payload rules, ticket belongs to this customer) and stored as `pending`.
 5. Without an API key (or if the LLM fails): offline mode, same steps 1–4 without generation.
+
+The loop speaks Anthropic's message shape. `LLM_PROVIDER=openai` swaps in `OpenAICompatLLM`
+(`generation/llm.py`), which translates each turn to Chat Completions (tools → functions,
+answer schema → `response_format`, `tool_result` blocks → `tool` messages) and sends assistant
+turns back verbatim (Gemini's tool-call thought signatures must round-trip). Rate limits and
+5xx are retried with backoff; timeouts fall back to offline mode. A 429 that asks to wait
+longer than 30 s (a daily quota) is not retried: the turn moves to the next of
+`LLM_FALLBACK_MODELS`, and the exhausted model is skipped until its reset.
+
+Live progress: `ask(..., on_progress=...)` reports steps (retrieving, retrieved, model round,
+tool, tool_done, checking). `POST /api/copilot/query/stream` runs `ask` in a worker thread and
+relays the steps as Server-Sent Events, then sends the final body. Authorization (customer
+scope) happens before the stream starts. The response sets `Cache-Control: no-transform` so
+the Next.js proxy doesn't gzip (and buffer) it.
 
 ## Actions (`app/tools/actions.py`)
 

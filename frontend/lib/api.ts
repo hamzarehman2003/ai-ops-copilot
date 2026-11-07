@@ -328,18 +328,90 @@ async function request<T>(
       data = text;
     }
   }
-  if (!res.ok) {
-    let detail = res.statusText;
-    if (data && typeof data === "object" && "detail" in data) {
-      detail = formatDetail((data as { detail: unknown }).detail);
-    } else if (res.status >= 500 && res.status !== 503) {
-      detail = "The API returned a server error (or is unreachable from the Next.js server).";
-    } else if (typeof data === "string" && data) {
-      detail = data.slice(0, 300);
-    }
-    throw new ApiError(res.status, detail || `HTTP ${res.status}`);
-  }
+  if (!res.ok) throw apiError(res, data);
   return data as T;
+}
+
+function apiError(res: Response, data: unknown): ApiError {
+  let detail = res.statusText;
+  if (data && typeof data === "object" && "detail" in data) {
+    detail = formatDetail((data as { detail: unknown }).detail);
+  } else if (res.status >= 500 && res.status !== 503) {
+    detail = "The API returned a server error (or is unreachable from the Next.js server).";
+  } else if (typeof data === "string" && data) {
+    detail = data.slice(0, 300);
+  }
+  return new ApiError(res.status, detail || `HTTP ${res.status}`);
+}
+
+// ---------- Copilot progress stream (Server-Sent Events) ----------
+
+export type ProgressEvent =
+  | { step: "retrieving" }
+  | { step: "retrieved"; count: number; documents: string[]; latency_ms: number }
+  | { step: "model"; round: number; model: string }
+  | { step: "tool"; name: string }
+  | { step: "tool_done"; name: string; ok: boolean; error: string | null }
+  | { step: "llm_failed"; error: string }
+  | { step: "checking" };
+
+type QueryBody = { question: string; customer_id?: string | null; conversation_id?: string | null };
+
+/** POST /api/copilot/query/stream: calls `onProgress` per step, resolves with the same body as
+ *  /api/copilot/query. Authorization errors (404/403) arrive as normal HTTP errors. */
+async function queryStream(
+  body: QueryBody,
+  onProgress: (event: ProgressEvent) => void,
+): Promise<QueryResponse> {
+  const headers: Record<string, string> = {
+    Accept: "text/event-stream",
+    "Content-Type": "application/json",
+  };
+  if (currentUserEmail) headers["X-User"] = currentUserEmail;
+
+  let res: Response;
+  try {
+    res = await fetch("/api/copilot/query/stream", {
+      method: "POST",
+      headers,
+      body: JSON.stringify(body),
+      cache: "no-store",
+    });
+  } catch {
+    throw new ApiError(0, "Cannot reach the API. Is the backend running?");
+  }
+  if (!res.ok || !res.body) {
+    const text = await res.text();
+    let data: unknown = text;
+    try {
+      data = JSON.parse(text);
+    } catch {}
+    throw apiError(res, data);
+  }
+
+  const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
+  let buffer = "";
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += value;
+    let end: number;
+    while ((end = buffer.indexOf("\n\n")) >= 0) {
+      const block = buffer.slice(0, end);
+      buffer = buffer.slice(end + 2);
+      let event = "message";
+      let data = "";
+      for (const line of block.split("\n")) {
+        if (line.startsWith("event: ")) event = line.slice(7);
+        else if (line.startsWith("data: ")) data += line.slice(6);
+      }
+      const payload = JSON.parse(data);
+      if (event === "progress") onProgress(payload as ProgressEvent);
+      else if (event === "result") return payload as QueryResponse;
+      else if (event === "error") throw new ApiError(500, payload.detail ?? "Copilot failed");
+    }
+  }
+  throw new ApiError(0, "The answer stream ended unexpectedly.");
 }
 
 // ---------- Endpoints ----------
@@ -357,6 +429,7 @@ export const api = {
     customer_id?: string | null;
     conversation_id?: string | null;
   }) => request<QueryResponse>("/api/copilot/query", { method: "POST", json: body }),
+  queryStream,
   feedback: (messageId: string, feedback: "helpful" | "unhelpful") =>
     request<void>(`/api/copilot/messages/${messageId}/feedback`, {
       method: "POST",

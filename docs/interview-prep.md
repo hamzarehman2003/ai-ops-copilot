@@ -447,6 +447,35 @@ Degrade, don't fail: the copilot falls back to "offline" mode (same retrieval an
 cited evidence) with a warning. Client timeouts and bounded retries.
 *In this repo:* `LLMError` handling in `copilot.ask`.
 
+### How do you keep the LLM provider swappable?
+Keep the orchestration (tool loop, grounding checks, authorization, action proposals) in your
+own code and make the adapter do exactly one model turn behind a tiny interface. Each adapter
+translates messages, tool definitions and structured-output settings, and maps stop reasons.
+Watch for provider-specific state that must round-trip (Gemini returns a `thought_signature`
+on tool calls that must be sent back unchanged), and for capability gaps (some models can't
+combine tools with a JSON schema). Then re-run the same eval set per provider: the checks in
+code stay constant, so differences are the model's.
+*In this repo:* `LLM` protocol, `AnthropicLLM`, `OpenAICompatLLM` in `generation/llm.py`;
+`tests/test_llm_openai.py`.
+
+### How do you handle LLM rate limits and quota errors?
+Separate a burst (429 with a short Retry-After: wait and retry, bounded) from a quota (429
+asking you to wait hours: don't retry, it only adds latency). On quota or a persistent 5xx,
+fall back to another model, and remember which model is exhausted so later requests skip it.
+Never retry 4xx validation errors. If everything fails, degrade (cited evidence, no generation)
+rather than error. Timeouts aren't retried in a user-facing request.
+*In this repo:* `_post` / `_post_with_fallback` in `generation/llm.py`, `LLM_FALLBACK_MODELS`.
+
+### How do you show progress for a slow, multi-step LLM answer?
+Stream it. Here the steps (search, each tool call, each model round, checks) are reported by a
+callback and sent as Server-Sent Events; the final event carries the same body as the
+non-streaming endpoint, so one client renders both. Do authorization before the stream starts
+(errors stay plain HTTP status codes), and watch for proxies that buffer (gzip, nginx):
+`Cache-Control: no-transform`, `X-Accel-Buffering: no`. Token streaming is the next step, but
+with a structured (JSON) answer you'd stream a field, not raw tokens.
+*In this repo:* `on_progress` in `copilot.ask`, `/api/copilot/query/stream`,
+`frontend/components/copilot/ProgressSteps.tsx`.
+
 ---
 
 ## 9. Tools, agents, and human approval

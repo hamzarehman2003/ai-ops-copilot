@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { AnswerView } from "@/components/copilot/AnswerView";
 import { CustomerPanel } from "@/components/copilot/CustomerPanel";
+import { ProgressSteps } from "@/components/copilot/ProgressSteps";
 import { Icon } from "@/components/icons";
 import { Button, Card, ErrorBanner, PageHeader, Spinner } from "@/components/ui";
 import {
@@ -13,7 +14,7 @@ import {
   InputGroupTextarea,
 } from "@/components/ui/input-group";
 import { Kbd } from "@/components/ui/kbd";
-import { api, type QueryResponse } from "@/lib/api";
+import { api, type ProgressEvent, type QueryResponse } from "@/lib/api";
 
 const EXAMPLES: { tag: string; q: string }[] = [
   { tag: "Account", q: "Why can't the team create tasks or upload files?" },
@@ -34,6 +35,8 @@ export default function CopilotPage() {
   const [turns, setTurns] = useState<Turn[]>([]);
   const [question, setQuestion] = useState("");
   const [pending, setPending] = useState(false);
+  const [progress, setProgress] = useState<ProgressEvent[]>([]);
+  const [startedAt, setStartedAt] = useState(0);
   const nextId = useRef(0);
   const bottomRef = useRef<HTMLDivElement>(null);
   const handledQuery = useRef(false);
@@ -57,12 +60,13 @@ export default function CopilotPage() {
     setQuestion("");
     setTurns((t) => [...t, { kind: "user", id: nextId.current++, text: q }]);
     setPending(true);
+    setProgress([]);
+    setStartedAt(Date.now());
     try {
-      const response = await api.query({
-        question: q,
-        customer_id: customerId,
-        conversation_id: conversationId,
-      });
+      const response = await api.queryStream(
+        { question: q, customer_id: customerId, conversation_id: conversationId },
+        (event) => setProgress((p) => [...p, event]),
+      );
       setConversationId(response.conversation_id);
       setTurns((t) => [...t, { kind: "assistant", id: nextId.current++, response }]);
     } catch (error) {
@@ -177,13 +181,7 @@ export default function CopilotPage() {
             {pending && (
               <div className="flex gap-3.5" data-testid="copilot-loading">
                 <AssistantMark />
-                <div className="flex items-center gap-2.5 pt-1 text-[13px] text-muted-foreground">
-                  <Spinner className="size-3.5" />
-                  Retrieving sources and drafting an answer…
-                  <span className="hidden text-muted-foreground/60 sm:inline">
-                    the first query can take ~20 s while models load
-                  </span>
-                </div>
+                <ProgressSteps events={progress} startedAt={startedAt} />
               </div>
             )}
             <div ref={bottomRef} />

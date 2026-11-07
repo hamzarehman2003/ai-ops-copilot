@@ -87,10 +87,16 @@ def main() -> int:
 
     llm = get_llm(settings) if args.llm else None
     if args.llm and llm is None:
-        print("--llm given but ANTHROPIC_API_KEY is not set")
+        print(
+            "--llm given but no LLM key is set "
+            "(ANTHROPIC_API_KEY, or LLM_API_KEY with LLM_PROVIDER=openai)"
+        )
         return 2
     if llm:
-        print(f"LLM mode: {len(cases)} cases will call {settings.llm_model} (this costs money).")
+        print(
+            f"LLM mode: {len(cases)} cases will call {settings.llm_provider}/{settings.llm_model} "
+            "(paid APIs cost money; free tiers may rate-limit)."
+        )
 
     engine = create_engine(settings.database_url)
     with engine.connect() as conn:
@@ -147,6 +153,7 @@ def run(session: Session, settings: Settings, cases: list[dict], k: int, llm) ->
             "git_commit": _git_commit(),
             "embedding_model": settings.embedding_model,
             "reranker_model": settings.reranker_model,
+            "llm_provider": settings.llm_provider if llm else None,
             "llm_model": settings.llm_model if llm else None,
             "llm_effort": settings.llm_effort if llm else None,
             "prompt_version": PROMPT_VERSION,

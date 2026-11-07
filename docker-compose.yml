@@ -29,8 +29,14 @@ services:
       EVAL_RESULTS_DIR: /evals/results
       WARMUP_MODELS: "true"
       # Optional: without a key the copilot runs in offline (extractive) mode.
+      LLM_PROVIDER: ${LLM_PROVIDER:-anthropic}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      LLM_BASE_URL: ${LLM_BASE_URL:-https://generativelanguage.googleapis.com/v1beta/openai}
+      LLM_API_KEY: ${LLM_API_KEY:-}
       LLM_MODEL: ${LLM_MODEL:-claude-opus-5-5}
+      LLM_FALLBACK_MODELS: ${LLM_FALLBACK_MODELS:-}
+      LLM_MAX_RETRIES: ${LLM_MAX_RETRIES:-3}
+      LLM_EFFORT: ${LLM_EFFORT-medium}
     ports:
       - "${API_PORT:-8001}:8000"
     volumes:

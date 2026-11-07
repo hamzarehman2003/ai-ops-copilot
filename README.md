@@ -7,7 +7,7 @@ only runs after a human approves it. Everything is synthetic, and every metric b
 `evals/run_eval.py`.
 
 **Stack:** FastAPI · PostgreSQL 17 + pgvector · SQLAlchemy/Alembic · fastembed (bge-small,
-MiniLM cross-encoder) · Claude (`claude-opus-5-5`, optional) · Next.js + Tailwind · Docker Compose
+MiniLM cross-encoder) · LLM adapter: Claude (`claude-opus-5-5`) or any OpenAI-compatible API, e.g. Gemini, Ollama (optional) · Next.js + Tailwind · Docker Compose
 
 ## What it does
 
@@ -15,14 +15,14 @@ MiniLM cross-encoder) · Claude (`claude-opus-5-5`, optional) · Next.js + Tailw
 |---|---|
 | Ingestion | PDF (headings from font layout, tables, header/footer removal), HTML (boilerplate and hidden-element removal), Markdown, text → section-aware 300-token chunks → embeddings → pgvector. Versioned by SHA-256; new versions swap in atomically after indexing. |
 | Retrieval | Dense (HNSW, cosine) + Postgres full-text, fused with RRF, reranked by a cross-encoder, thresholded for abstention. Tenant, current-version, and deprecated filters inside the SQL. Every query traced. |
-| Answers | Claude with structured output and two read-only tools; code checks citations ("cite or abstain"). Offline mode (no API key): same pipeline, cited evidence instead of generation. |
+| Answers | Claude or any OpenAI-compatible model (Gemini, Ollama, Groq, OpenAI) with structured output and two read-only tools; code checks citations ("cite or abstain"). Offline mode (no API key): same pipeline, cited evidence instead of generation. |
 | Tools and actions | Customer-scoped tool authorization, timeouts, bounded retries, response validation; proposed ticket notes/tags/status changes → human approve/edit/reject → idempotent execution against a mock CRM; full audit log. |
 | Evals | 95 labeled cases: retrieval per mode, abstention, citations, required/forbidden facts, cross-tenant leaks, injection, role checks, tool faults. |
 
 ## Quick start
 
 ```bash
-cp .env.example .env            # optionally set ANTHROPIC_API_KEY (otherwise offline mode)
+cp .env.example .env            # optionally set an LLM key: Anthropic, or Gemini/Ollama/... (otherwise offline mode)
 docker compose up -d --build    # db :5433, api :8001, web :3002
 docker compose exec api python -m scripts.seed               # users, customers, tickets
 docker compose exec api python -m scripts.upload_demo_docs   # upload + index, waits until ready
@@ -33,6 +33,10 @@ pick a demo user in the top bar (`admin@`, `agent@`, `viewer@tasklane.example`, 
 tenant `admin@`/`agent@acme.example`). API calls send it as the `X-User` header.
 
 ## Demo script
+
+Before each take: `docker compose exec api python -m scripts.reset_demo --yes` (fresh
+conversations, approvals, tickets; indexed docs are kept). In LLM mode the Copilot shows each
+step live (search → account tools → model rounds → checks).
 
 1. **Copilot**, customer *Brightpath Logistics*: "Why can't the team create tasks or upload
    files?" → account status `suspended` from the CRM tool + the suspension policy, cited.

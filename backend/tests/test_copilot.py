@@ -319,3 +319,76 @@ def test_search_and_meta(client):
     meta = client.get("/api/meta", headers=AGENT).json()
     assert meta["prompt_version"] == "grounded-answer-v1"
     assert meta["index"]["current_chunks"] > 0
+
+
+# --- Live progress (SSE) -----------------------------------------------------------------------
+
+
+def sse_events(text: str) -> list[tuple[str, dict]]:
+    events = []
+    for block in text.strip().split("\n\n"):
+        lines = dict(line.split(": ", 1) for line in block.splitlines())
+        events.append((lines["event"], json.loads(lines["data"])))
+    return events
+
+
+def test_progress_reports_retrieval_model_rounds_and_tools(indexed):
+    llm = FakeLLM(
+        [("get_account_status", {"customer_id": "CUST-1001"})],
+        answer("Suspended [S1].", ["S1"]),
+    )
+    events: list[dict] = []
+    ask(
+        indexed.session,
+        indexed.settings,
+        agent(indexed),
+        QUESTION,
+        customer=customer(indexed, "CUST-1001"),
+        llm=llm,
+        on_progress=events.append,
+    )
+    assert [e["step"] for e in events] == [
+        "retrieving",
+        "retrieved",
+        "model",
+        "tool",
+        "tool_done",
+        "model",
+        "checking",
+    ]
+    assert events[1]["count"] > 0 and events[1]["documents"]
+    assert events[4] == {
+        "step": "tool_done",
+        "name": "get_account_status",
+        "ok": True,
+        "error": None,
+    }
+    assert [e["round"] for e in events if e["step"] == "model"] == [1, 2]
+
+
+def test_stream_endpoint_sends_progress_then_the_same_result(client, indexed):
+    response = client.post(
+        "/api/copilot/query/stream",
+        headers=AGENT,
+        json={"question": QUESTION, "customer_id": str(customer(indexed, "CUST-1001").id)},
+    )
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/event-stream")
+    events = sse_events(response.text)
+
+    kinds = [kind for kind, _ in events]
+    assert kinds[-1] == "result" and set(kinds[:-1]) == {"progress"}
+    steps = [data["step"] for kind, data in events if kind == "progress"]
+    assert steps == ["retrieving", "retrieved", "tool", "tool_done", "checking"]  # offline
+    result = events[-1][1]
+    assert result["mode"] == "offline" and result["citations"]
+    assert result["tool_calls"][0]["tool_name"] == "get_account_status"
+
+
+def test_stream_for_another_tenants_customer_is_404_before_streaming(client, indexed):
+    response = client.post(
+        "/api/copilot/query/stream",
+        headers=AGENT,
+        json={"question": "status?", "customer_id": str(customer(indexed, "CUST-9001").id)},
+    )
+    assert response.status_code == 404

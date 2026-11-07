@@ -28,10 +28,19 @@ class Settings(BaseSettings):
     min_rerank_score: float = -5.0  # below: "not relevant" (see rag-decisions.md)
 
     # LLM. Without an API key the copilot runs in "offline" mode (extractive, no generation).
+    # llm_provider: "anthropic" (Messages API) or "openai" = any OpenAI-compatible Chat
+    # Completions endpoint (Gemini, Ollama, Groq, OpenAI...) at llm_base_url with llm_api_key.
+    llm_provider: str = "anthropic"
     anthropic_api_key: str | None = None
+    llm_base_url: str = "https://generativelanguage.googleapis.com/v1beta/openai"
+    llm_api_key: str | None = None  # Ollama ignores it, but set any non-empty value
     llm_model: str = "claude-opus-5-5"
-    llm_effort: str = "medium"
+    # OpenAI-compatible only: comma-separated models tried in order when llm_model is out of
+    # quota or overloaded (free tiers have small per-model daily quotas).
+    llm_fallback_models: str = ""
+    llm_effort: str = "medium"  # "" = don't send an effort/reasoning setting
     llm_timeout_s: float = 90.0
+    llm_max_retries: int = 3  # 429 / 5xx / timeouts (free tiers rate-limit often)
     llm_max_tool_rounds: int = 4
 
     # Mock CRM behaviour (tools). Faults let tests/evals exercise timeouts and bad responses.
@@ -48,6 +57,8 @@ class Settings(BaseSettings):
 
     @property
     def llm_enabled(self) -> bool:
+        if self.llm_provider == "openai":
+            return bool(self.llm_api_key)
         return bool(self.anthropic_api_key)
 
 
