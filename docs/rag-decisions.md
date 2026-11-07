@@ -213,7 +213,12 @@ One entry per decision. This is interview prep: be able to defend every line.
   | faithfulness | 0.86 | 0.85 | 0.91 | 0.89 | 0.88 |
 
   The v3 draft's "answer directly" rule stopped tool calls (0.25) until checking the account
-  became an explicit first step. Full-run numbers: see README (run at the final commit).
+  became an explicit first step. Full runs (103 cases), v2 `20261107T194616Z` → v3.1
+  `20261107T234622Z`: answers-when-it-should 0.93 → 0.98, required facts 0.93 → 1.00,
+  citation correctness 0.96 → 0.97, abstention 1.00 → 1.00, faithfulness 0.97 → 0.95. Run
+  `20261107T224827Z` (v3) is valid for quality only: a game was using the GPU during it, so its
+  latency is not comparable. v3.1 adds today's date (`<today>`): v3 read a 2026-01-01
+  effective date as a future price change (u11).
 - **Known trade-offs / when I'd revisit:** longer answers cost latency (demo turn ~12 s →
   ~17 s on an RTX 3060) and give the judge more "what to tell the customer" sentences to flag
   (faithfulness 0.97 → ~0.94); the 9B model still sometimes writes "likely". Proposals are
