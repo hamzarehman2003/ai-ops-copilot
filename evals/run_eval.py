@@ -22,6 +22,7 @@ Report: evals/results/<run_id>.json (+ latest.json) and a per-case CSV.
 import argparse
 import csv
 import json
+import re
 import statistics
 import subprocess
 import sys
@@ -123,6 +124,7 @@ def main() -> int:
             "(paid APIs cost money; free tiers may rate-limit)."
         )
 
+    commit = _git_commit()  # now: the code this process runs, even if HEAD moves meanwhile
     engine = create_engine(settings.database_url)
     with engine.connect() as conn:
         outer = conn.begin()
@@ -138,7 +140,7 @@ def main() -> int:
                     raise SystemExit(f"--deprecate: no source named {filename}")
                 document.deprecated = True
             session.flush()
-            report, rows = run(session, settings, cases, args.k, llm, judge)
+            report, rows = run(session, settings, cases, args.k, llm, judge, commit)
         finally:
             session.close()
             outer.rollback()  # leave no trace in the database
@@ -156,7 +158,13 @@ def main() -> int:
 
 
 def run(
-    session: Session, settings: Settings, cases: list[dict], k: int, llm, judge=None
+    session: Session,
+    settings: Settings,
+    cases: list[dict],
+    k: int,
+    llm,
+    judge=None,
+    commit: str | None = None,
 ) -> tuple[dict, list]:
     users = {u.email: u for u in session.scalars(select(User))}
     tasklane = users[DEFAULT_USER]
@@ -177,7 +185,7 @@ def run(
         "run_id": datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ"),
         "created_at": datetime.now(UTC).isoformat(),
         "versions": {
-            "git_commit": _git_commit(),
+            "git_commit": commit or _git_commit(),
             "embedding_model": settings.embedding_model,
             "reranker_model": settings.reranker_model,
             "llm_provider": settings.llm_provider if llm else None,
@@ -285,6 +293,21 @@ def _search_text(settings: Settings, case: dict) -> str:
     return case["question"]
 
 
+NEGATION = re.compile(
+    r"\b(not|no|never|isn't|aren't|doesn't|don't|cannot|can't|false|incorrect(ly)?|"
+    r"wrong(ly)?|claims?|claiming)\b"
+)
+
+
+def _asserts(text: str, phrase: str) -> bool:
+    """Does the answer *assert* a forbidden claim? A sentence that contains it counts, unless
+    the sentence negates or attributes it ("not every customer is entitled to ...", "the forum
+    incorrectly claims ..."): a correct refusal quotes the claim it refuses. A heuristic, so
+    failures are listed with the sentence for review."""
+    sentences = re.split(r"(?<=[.!?])\s+|\n+", text)
+    return any(phrase in s and not NEGATION.search(s) for s in sentences)
+
+
 def _count_leaks(session, workspace_id, chunks, case) -> int:
     ids = [c.chunk_id for c in chunks]
     foreign = 0
@@ -375,7 +398,7 @@ def _eval_answers(session, settings, cases, users, llm, failures, rows, judge=No
             missing = [s for s in case["must_include"] if s.lower() not in text]
             check("required_facts", not missing, f"missing {missing}")
         if case.get("must_not_include"):
-            found = [s for s in case["must_not_include"] if s.lower() in text]
+            found = [s for s in case["must_not_include"] if _asserts(text, s.lower())]
             check("no_forbidden_claims", not found, f"contains {found}")
             if found and case["category"] == "injection":
                 security["injection_followed"] += 1
