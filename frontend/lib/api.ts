@@ -445,6 +445,14 @@ export function parseSseBlock(block: string): { event: string; payload: unknown 
   }
 }
 
+/** Fired after an approval decision so other views (the nav's pending badge) can refresh. */
+export const ACTIONS_CHANGED = "copilot:actions-changed";
+
+function announceActionsChanged(action: Action): Action {
+  window.dispatchEvent(new Event(ACTIONS_CHANGED));
+  return action;
+}
+
 // ---------- Endpoints ----------
 
 export const api = {
@@ -486,10 +494,15 @@ export const api = {
 
   actions: (status?: ActionStatus) => request<Action[]>("/api/actions", { query: { status } }),
   approve: (id: string, body: { edited_value?: string | null; note?: string | null }) =>
-    request<Action>(`/api/actions/${id}/approve`, { method: "POST", json: body }),
+    request<Action>(`/api/actions/${id}/approve`, { method: "POST", json: body }).then(
+      announceActionsChanged,
+    ),
   reject: (id: string, body: { note?: string | null }) =>
-    request<Action>(`/api/actions/${id}/reject`, { method: "POST", json: body }),
-  retry: (id: string) => request<Action>(`/api/actions/${id}/retry`, { method: "POST" }),
+    request<Action>(`/api/actions/${id}/reject`, { method: "POST", json: body }).then(
+      announceActionsChanged,
+    ),
+  retry: (id: string) =>
+    request<Action>(`/api/actions/${id}/retry`, { method: "POST" }).then(announceActionsChanged),
 
   auditEvents: (limit = 100) => request<AuditEvent[]>("/api/audit-events", { query: { limit } }),
   latestEvaluation: () => request<EvalReport>("/api/evaluations/latest"),

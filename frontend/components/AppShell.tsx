@@ -30,7 +30,7 @@ import {
   SidebarRail,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
-import { api } from "@/lib/api";
+import { ACTIONS_CHANGED, api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { CommandMenu } from "./CommandMenu";
 import { Icon } from "./icons";
@@ -40,17 +40,21 @@ import { ThemeToggle } from "./ThemeToggle";
 import { useUser } from "./UserProvider";
 import { ErrorBanner } from "./ui";
 
-/** Pending approvals for the nav badge; refreshed on navigation. */
+/** Pending approvals for the nav badge; refreshed on navigation and after every decision. */
 function usePendingCount(pathname: string) {
   const [count, setCount] = useState<number | null>(null);
   useEffect(() => {
     let cancelled = false;
-    api
-      .actions("pending")
-      .then((a) => !cancelled && setCount(a.length))
-      .catch(() => !cancelled && setCount(null));
+    const load = () =>
+      api
+        .actions("pending")
+        .then((a) => !cancelled && setCount(a.length))
+        .catch(() => !cancelled && setCount(null));
+    void load();
+    window.addEventListener(ACTIONS_CHANGED, load);
     return () => {
       cancelled = true;
+      window.removeEventListener(ACTIONS_CHANGED, load);
     };
   }, [pathname]);
   return count;

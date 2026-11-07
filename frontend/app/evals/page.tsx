@@ -9,7 +9,7 @@ import {
 } from "@/components/evals/ReportValue";
 import { RetrievalComparison } from "@/components/evals/RetrievalComparison";
 import { Icon } from "@/components/icons";
-import { ModeChart, type ModeMetrics } from "@/components/overview/ModeChart";
+import { asModeMetrics, ModeChart, type ModeMetrics } from "@/components/overview/ModeChart";
 import {
   Button,
   EmptyState,
@@ -79,7 +79,7 @@ function Report({ data }: { data: EvalReport }) {
     versions && isRecord(versions.retrieval) && typeof versions.retrieval.default_mode === "string"
       ? versions.retrieval.default_mode
       : "hybrid_rerank";
-  const best = modes && isRecord(modes[defaultMode]) ? (modes[defaultMode] as ModeMetrics) : null;
+  const best = asModeMetrics(modes?.[defaultMode]);
   const security = isRecord(data.security) ? data.security : null;
   const incidents = security
     ? SECURITY_KEYS.reduce((s, k) => s + (typeof security[k] === "number" ? security[k] : 0), 0)

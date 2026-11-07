@@ -7,8 +7,16 @@ import { FileGlyph } from "@/components/FileGlyph";
 import { Button as ShadButton } from "@/components/ui/button";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { Icon, type IconName } from "@/components/icons";
-import { ModeChart, type ModeMetrics } from "@/components/overview/ModeChart";
-import { cx, EmptyState, PageHeader, Panel, StatTile, StatusBadge } from "@/components/ui";
+import { asModeMetrics, ModeChart, type ModeMetrics } from "@/components/overview/ModeChart";
+import {
+  cx,
+  EmptyState,
+  ErrorBanner,
+  PageHeader,
+  Panel,
+  StatTile,
+  StatusBadge,
+} from "@/components/ui";
 import { useUser } from "@/components/UserProvider";
 import {
   api,
@@ -27,6 +35,7 @@ const rec = (v: unknown): Rec | null =>
 const num = (v: unknown): number | null => (typeof v === "number" ? v : null);
 
 const ANSWER_METRICS: [string, string][] = [
+  ["faithfulness", "Claims supported by the sources (LLM judge)"],
   ["answered_when_answerable", "Answers when the docs cover it"],
   ["citation_coverage", "Answers that cite a source"],
   ["citation_correctness", "Cites the expected document"],
@@ -68,7 +77,9 @@ export default function OverviewPage() {
   const modes = rec(retrieval?.modes) as Record<string, ModeMetrics> | null;
   const versions = rec(r?.versions);
   const defaultMode = String(rec(versions?.retrieval)?.default_mode ?? "hybrid_rerank");
-  const best = modes?.[defaultMode];
+  const best = asModeMetrics(modes?.[defaultMode]);
+  // The eval report is optional (404 before the first run); everything else should load.
+  const loadError = [sources, actions, meta, audit].find((x) => x.error != null)?.error;
   const answers = rec(r?.answers);
   const security = rec(r?.security);
   const latency = rec(r?.latency_ms);
@@ -114,6 +125,12 @@ export default function OverviewPage() {
       />
 
       <AskBar />
+
+      {loadError != null && (
+        <div className="mt-4">
+          <ErrorBanner error={loadError} />
+        </div>
+      )}
 
       <section className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="Key numbers">
         <StatTile

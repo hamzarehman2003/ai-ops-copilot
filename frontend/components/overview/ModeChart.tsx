@@ -7,6 +7,16 @@ import { Segmented } from "../ui";
 
 export type ModeMetrics = Record<string, number>;
 
+/** One retrieval mode's metrics from an eval report, or null if the report (a JSON file that
+ *  can change shape between versions) doesn't have them: render "no data", don't crash. */
+export function asModeMetrics(value: unknown): ModeMetrics | null {
+  if (typeof value !== "object" || value === null) return null;
+  const m = value as Record<string, unknown>;
+  return ["n", "hit@1", "hit@3", "mrr"].every((k) => typeof m[k] === "number")
+    ? (m as ModeMetrics)
+    : null;
+}
+
 const MODE_LABELS: Record<string, { name: string; detail: string }> = {
   dense: { name: "Dense", detail: "bge-small · cosine" },
   lexical: { name: "Lexical", detail: "Postgres full-text" },
