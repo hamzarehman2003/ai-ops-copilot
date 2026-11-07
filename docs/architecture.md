@@ -69,6 +69,11 @@ calls, injection and abstention cases; gemma4:12b timed out or returned unparsea
 qwen3:14b skipped tools and spilled onto the CPU. Thinking on doubled to quadrupled latency
 without making tool use more reliable.
 
+Weak searches: in LLM mode, if the best reranked chunk scores below
+`query_rewrite_below_score`, the question is rewritten into 1-3 documentation-style queries
+(`generation/query_rewrite.py`), each is searched, and results merge by best score. The
+structured answer starts with an `evidence` list (facts with source ids) before `answer`.
+
 Live progress: `ask(..., on_progress=...)` reports steps (retrieving, retrieved, model round,
 tool, tool_done, checking). `POST /api/copilot/query/stream` runs `ask` in a worker thread and
 relays the steps as Server-Sent Events, then sends the final body. Authorization (customer

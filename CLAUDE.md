@@ -101,7 +101,10 @@ Host ports: Postgres **5433**, API **8001** (5432/8000 are used by other local p
 - Evals (needs seeded + indexed dev DB; runs in a rolled-back transaction):
   `cd backend && .venv/Scripts/python ../evals/run_eval.py [--deprecate legacy-pricing-faq-2024.md] [--llm]`
   or `docker compose exec api python /evals/run_eval.py`. Writes `evals/results/<run>.json`,
-  `latest.json`, and a per-case CSV. `--llm` calls the real model (costs money).
+  `latest.json`, and a per-case CSV (with answers). `--llm` calls the real model (costs money);
+  `--judge [--judge-model M]` adds faithfulness; `--only ids,categories` and `--answers-only`
+  for fast prompt iterations (write those to `--out <scratch dir>`). Measure latency with the
+  GPU otherwise idle.
 - Embedding/reranker models download on first use to `backend/.cache/models` (Docker: `models`
   volume). The first test run downloads them (~150 MB).
 - LLM: set `ANTHROPIC_API_KEY` in `.env`, or `LLM_PROVIDER=openai` + `LLM_BASE_URL` +
@@ -174,9 +177,12 @@ Shared helpers in `parsing/base.py`: `decode_text` (UTF-8, `\n` endings), `Secti
 - Retrieval: `app/retrieval/search.py`, modes dense | lexical | hybrid | hybrid_rerank (default);
   tenant/current/deprecated filters inside SQL; writes `retrieval_traces`. Tuning in `config.py`
   (`retrieval_k=5`, `retrieval_candidates=20`, `rerank_top_n=20`, `min_rerank_score=-5`).
-- Copilot: `app/generation/copilot.py` (`ask`): retrieval → LLM tool loop or offline → grounding
-  checks → optional pending `ProposedAction`. Prompt in `generation/prompts.py`
-  (`PROMPT_VERSION`); bump it on every prompt change and re-run evals.
+- Copilot: `app/generation/copilot.py` (`ask`): retrieval (follow-ups include the previous
+  question; weak searches are rewritten into doc terms in LLM mode, `generation/query_rewrite.py`)
+  → LLM tool loop or offline → grounding checks ([S#] documents, [T#] tool results) → optional
+  pending `ProposedAction`. Prompt in `generation/prompts.py` (`PROMPT_VERSION`, currently
+  v3; the schema puts `evidence` before `answer`); bump it on every prompt change and re-run
+  evals. Tests run with `query_rewrite=False` so scripted fakes see only their turns.
 - Tests: `tests/conftest.py` `indexed` fixture seeds and indexes all demo docs once per module
   (real models); LLM behaviour is tested with a scripted `FakeLLM` (`tests/test_copilot.py`).
 

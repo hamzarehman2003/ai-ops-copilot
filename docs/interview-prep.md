@@ -486,6 +486,38 @@ with a structured (JSON) answer you'd stream a field, not raw tokens.
 *In this repo:* `on_progress` in `copilot.ask`, `/api/copilot/query/stream`,
 `frontend/components/copilot/ProgressSteps.tsx`.
 
+### How do you improve a RAG prompt without fooling yourself?
+Make it eval-driven: list the current failures, group them by cause (over-abstaining,
+missing specifics, over-citing, speculation...), build a small iteration set of those cases
+*plus* control groups (unanswerable, injection, tool use) so a fix can't hide a regression,
+change one thing at a time, and read the answers, not just the scores (1-2 cases is noise on
+50). Never put eval wording into the prompt's examples: that teaches to the test. Bump the
+prompt version and re-run the full eval at a clean commit before quoting numbers.
+*In this repo:* `--only` / `--answers-only` in `evals/run_eval.py`; the v2 → v3 table in
+`docs/rag-decisions.md` (one rule, "answer directly", silently stopped tool calls: 1.00 → 0.25).
+
+### Why put an "evidence" field before the answer in a structured output?
+Fields are generated in order. Asking the model to first list the facts it will use (with
+source ids and exact values), then write the answer, gives a model without a thinking mode
+room to reason, keeps specifics (numbers, codes) from being paraphrased away, and makes
+citations more precise. It costs output tokens, so latency. Store it for debugging; don't
+show it.
+*In this repo:* `evidence` in `ANSWER_SCHEMA` (`generation/prompts.py`), `AnswerPayload`.
+
+### Users phrase things differently from the docs. How do you handle that?
+Measure first: if the right chunk scores below your relevance threshold (or isn't retrieved
+at all), no prompt can fix it. Then: query rewriting (an LLM turns the question into the
+documentation's vocabulary), multi-query, HyDE, or a reranker trained on your domain.
+Rewriting only when the first search is weak (low top rerank score) keeps the extra call off
+the common path, like corrective RAG. Keep the user's question for the answer itself.
+*In this repo:* `generation/query_rewrite.py`, `query_rewrite_below_score`.
+
+### Your answer latency doubled between two eval runs. What happened?
+Check the machine before the code: here a game was running on the same GPU during one run
+(decode speed 21 vs 37 tokens/s). Measure latency on a quiet machine, record what else was
+running, and break a slow answer into its calls (prompt tokens, output tokens, seconds per
+call): the cost was output length, not the schema or the tools.
+
 ### Why can't a local model call tools when you ask for structured JSON output?
 Local servers (Ollama, llama.cpp) implement JSON schemas with grammar-constrained decoding: at
 every step, tokens that would break the schema are masked out. A tool call is a different

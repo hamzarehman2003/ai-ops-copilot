@@ -186,6 +186,59 @@ One entry per decision. This is interview prep: be able to defend every line.
 - **Known trade-offs / when I'd revisit:** effort `medium` not yet tuned; no prompt caching
   (prompt below the cacheable minimum).
 
+### Prompt v3: answer shape, evidence first, abstain rules, action requests — 2026-11-08
+- **Choice:** `grounded-answer-v3` rewrites the system prompt around the failures of v2:
+  check the account first (explicit step before answering); a direct first sentence (the
+  cause for "why", Yes/No only for yes/no); keep exact values; match the user's wording to
+  the docs by meaning; cite only supporting sources, and for a customer both the account fact
+  [T#] and the rule [S#]; no "likely" or unsupported advice; abstain only when the sources
+  don't answer what was asked (and then `abstained` must be true); a missing customer is never
+  a reason to abstain; requests to change a ticket fetch the tickets and propose. The schema
+  gets field descriptions and an `evidence` list *before* `answer`: with thinking off, it is
+  where a 9B model extracts the facts (with source ids) it then writes from.
+- **Process:** a 53-case iteration set (every v2 failure + unanswerable, injection, account,
+  conflict, tool-fault, cross-tenant controls) with `--only` / `--answers-only`, judge on,
+  answers in the CSV; read the answers, not just the scores (differences of 1-2 cases are
+  noise at this size). Prompt examples never reuse eval wording (a first draft did; removed,
+  because it would teach to the test).
+- **Eval evidence (iteration set, qwen3.5:9b, judge gemma4:12b):**
+
+  | | v2 | v3 draft | + account first | + evidence first | + rewrite (below) |
+  |---|---|---|---|---|---|
+  | answers when it should | 0.82 | 0.88 | 0.88 | 0.85 | 0.94 |
+  | correct abstention | 1.00 | 0.93 | 0.93 | 1.00 | 1.00 |
+  | citation correctness | 0.85 | 0.93 | 0.93 | 0.93 | 0.94 |
+  | required facts | 0.77 | 0.85 | 0.77 | 0.85 | 1.00 |
+  | account tool used | 1.00 | 0.25 | 0.88 | 0.88 | 0.75 |
+  | faithfulness | 0.86 | 0.85 | 0.91 | 0.89 | 0.88 |
+
+  The v3 draft's "answer directly" rule stopped tool calls (0.25) until checking the account
+  became an explicit first step. Full-run numbers: see README (run at the final commit).
+- **Known trade-offs / when I'd revisit:** longer answers cost latency (demo turn ~12 s →
+  ~17 s on an RTX 3060) and give the judge more "what to tell the customer" sentences to flag
+  (faithfulness 0.97 → ~0.94); the 9B model still sometimes writes "likely". Proposals are
+  still only made when asked; a larger model proposes unprompted.
+
+### Rewrite weak searches into documentation terms (LLM mode) — 2026-11-08
+- **Choice:** if the best reranked chunk scores below 0.0 (`query_rewrite_below_score`), one
+  LLM call turns the question into 1-3 help-center queries; each is searched with the normal
+  pipeline (threshold included) and results merge by best score. Strong searches pay nothing;
+  offline mode unchanged; the model still answers the user's own question.
+- **Why:** the remaining "answers when it should" failures were retrieval, not the prompt:
+  "money back" scored the refund chunk at -6.7 (below the -5 threshold), "can look but can't
+  add" never reached the suspension chunk. The model was right to abstain with nothing to cite.
+- **Alternatives:** always rewrite or multi-query (+1 call on every question); HyDE (embed a
+  hypothetical answer: more tokens, invents terms); lower the threshold (hurts abstention);
+  a larger reranker (helps scores, not candidates that never got retrieved).
+- **Eval evidence:** threshold chosen from the top rerank score of all 89 single-turn cases:
+  below 0 fires on 12/77 answerable questions, including 5 of the 5 top-1 misses, and 11/12
+  unanswerable ones; correct abstention stayed 1.00. Iteration set: answers-when-it-should
+  0.85 → 0.94 (rescued p01 "money back", p02 "can't add anything", p04 Okta certificate);
+  p06 ("our chat app" → Slack) and s17 (storage) still miss.
+- **Known trade-offs / when I'd revisit:** +1 model call and 1-3 searches (~2-4 s) on weak
+  questions, including the unanswerable ones; a reranker fine-tuned on support phrasing would
+  make it fire less.
+
 ### Faithfulness: claim-level LLM judge, a different model than the answerer — 2026-11-07
 - **Choice:** `evals/judge.py` splits each non-abstained answer into atomic claims and marks
   each supported or not by the context the model was given (chunks + tool results);
