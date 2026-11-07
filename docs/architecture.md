@@ -41,8 +41,10 @@ Every query writes a `retrieval_traces` row (all candidates with dense/lexical r
 3. Tool loop (≤ 4 rounds): the model may call `get_account_status` / `get_recent_tickets`;
    `tools/registry.py` authorizes each call against the human-selected customer and workspace,
    applies timeout + retries, validates the response, and records a `tool_calls` row.
-4. Final structured answer → code checks: citations must refer to retrieved sources; no valid
-   citation and no tool evidence → abstain; a proposed action is validated (allow-listed type,
+4. Final structured answer → code checks: citations must refer to a retrieved document
+   (`[S#]`) or a successful tool result of this run (`[T#]`); unknown markers are removed from
+   the text; no valid citation → abstain; a proposed action (never on an abstention) is
+   validated (allow-listed type,
    payload rules, ticket belongs to this customer) and stored as `pending`.
 5. Without an API key (or if the LLM fails): offline mode, same steps 1–4 without generation.
 

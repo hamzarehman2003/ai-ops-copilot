@@ -19,6 +19,7 @@ from app.generation.copilot import (
     citation_list,
     proposal_summary,
     source_list,
+    tool_source_ids,
 )
 from app.generation.llm import get_llm
 from app.models import Customer, Message, RetrievalTrace, ToolCall, User
@@ -112,7 +113,7 @@ def _response(run: CopilotRun) -> dict:
         "missing_information": run.payload.missing_information,
         "citations": citation_list(run),
         "sources": source_list(run),
-        "tool_calls": [_tool_call(c) for c in run.tool_ctx.calls],
+        "tool_calls": _tool_calls(run.tool_ctx.calls),
         "proposed_action": proposal_summary(run),
         "mode": run.mode,
         "model": run.model,
@@ -167,7 +168,7 @@ def trace(message_id: uuid.UUID, workspace: WorkspaceDep, session: SessionDep) -
             "results": retrieval.results,
             "latency_ms": retrieval.latency_ms,
         },
-        "tool_calls": [_tool_call(c) for c in calls],
+        "tool_calls": _tool_calls(calls),
     }
 
 
@@ -200,9 +201,15 @@ def search(
     }
 
 
-def _tool_call(call: ToolCall) -> dict:
+def _tool_calls(calls: list[ToolCall]) -> list[dict]:
+    sids = tool_source_ids(calls)
+    return [_tool_call(c, sids.get(c.id)) for c in calls]
+
+
+def _tool_call(call: ToolCall, source_id: str | None) -> dict:
     return {
         "id": call.id,
+        "source_id": source_id,  # [T#] when the call succeeded (citable)
         "tool_name": call.tool_name,
         "arguments": call.arguments,
         "status": call.status,

@@ -69,6 +69,8 @@ export interface Citation {
 
 export interface ToolCallOut {
   id: string;
+  /** "T1", "T2"... for successful calls: answers cite them like documents ([T1]). */
+  source_id: string | null;
   tool_name: string;
   arguments: unknown;
   status: string; // ok | denied | error | timeout

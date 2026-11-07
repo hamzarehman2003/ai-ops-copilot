@@ -17,9 +17,15 @@ import { ProposedActionCard } from "./ProposedActionCard";
 import { ToolCallList } from "./ToolCallList";
 import { TraceDrawer } from "./TraceDrawer";
 
-const MARKER = /\[(S\d+)\]/g;
+const MARKER = /\[([ST]\d+)\]/g;
 
-/** One assistant answer: text with [S#] chips, citations, tools, proposed action, feedback. */
+const TOOL_TITLES: Record<string, string> = {
+  get_account_status: "Account status from the CRM",
+  get_recent_tickets: "Recent tickets from the CRM",
+};
+
+/** One assistant answer: text with [S#] (document) and [T#] (tool result) chips, citations,
+ *  tools, proposed action, feedback. */
 export function AnswerView({ response }: { response: QueryResponse }) {
   const [highlight, setHighlight] = useState<string | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
@@ -30,6 +36,9 @@ export function AnswerView({ response }: { response: QueryResponse }) {
   const citedIds = new Set(response.citations.map((c) => c.source_id));
   const others = response.sources.filter((s) => !citedIds.has(s.source_id));
   const known = new Map<string, Citation>(response.sources.map((s) => [s.source_id, s]));
+  const tools = new Map(
+    response.tool_calls.flatMap((c) => (c.source_id ? [[c.source_id, c.tool_name] as const] : [])),
+  );
 
   useEffect(() => () => void (flashTimer.current && clearTimeout(flashTimer.current)), []);
 
@@ -91,7 +100,7 @@ export function AnswerView({ response }: { response: QueryResponse }) {
       ))}
 
       <div className="text-[14.5px] leading-[1.7] whitespace-pre-wrap text-foreground">
-        {renderAnswer(response.answer, known, highlight, focusSource)}
+        {renderAnswer(response.answer, known, tools, highlight, focusSource)}
       </div>
 
       {response.citations.length > 0 && (
@@ -167,6 +176,7 @@ export function AnswerView({ response }: { response: QueryResponse }) {
 function renderAnswer(
   text: string,
   known: Map<string, Citation>,
+  tools: Map<string, string>,
   highlight: string | null,
   onClick: (sid: string) => void,
 ) {
@@ -177,8 +187,25 @@ function renderAnswer(
     const idx = m.index ?? 0;
     parts.push(<Fragment key={`t${idx}`}>{text.slice(last, idx)}</Fragment>);
     const source = known.get(sid);
+    const tool = tools.get(sid);
     parts.push(
-      source ? (
+      tool ? (
+        <Tooltip key={`c${idx}`}>
+          <TooltipTrigger asChild>
+            <span
+              tabIndex={0}
+              data-testid="tool-citation-chip"
+              className="mx-0.5 inline-flex h-[18px] -translate-y-px items-center rounded-sm border border-primary/25 bg-primary/10 px-1.5 align-middle font-mono text-[10.5px] font-medium text-primary outline-none focus-visible:ring-3 focus-visible:ring-ring/40"
+            >
+              {sid}
+            </span>
+          </TooltipTrigger>
+          <TooltipContent side="top" className="flex-col items-start gap-0.5">
+            <span className="font-medium">{TOOL_TITLES[tool] ?? "Tool result"}</span>
+            <span className="font-mono opacity-75">{tool}</span>
+          </TooltipContent>
+        </Tooltip>
+      ) : source ? (
         <Tooltip key={`c${idx}`}>
           <TooltipTrigger asChild>
             <button

@@ -1,13 +1,14 @@
 {
-  "run_id": "20261104T135019Z",
-  "created_at": "2026-11-04T13:50:19.056176+00:00",
+  "run_id": "20261107T183538Z",
+  "created_at": "2026-11-07T18:35:38.725931+00:00",
   "versions": {
-    "git_commit": "6cc115a",
+    "git_commit": "b7e35bd",
     "embedding_model": "BAAI/bge-small-en-v1.5",
     "reranker_model": "Xenova/ms-marco-MiniLM-L-6-v2",
+    "llm_provider": null,
     "llm_model": null,
     "llm_effort": null,
-    "prompt_version": "grounded-answer-v1",
+    "prompt_version": "grounded-answer-v2",
     "deprecated_sources": [
       "legacy-pricing-faq-2024.md"
     ],
@@ -83,8 +84,8 @@
         "outdated_ranked_first": 0.0
       }
     },
-    "latency_ms_p50": 2223,
-    "latency_ms_p95": 2861
+    "latency_ms_p50": 715,
+    "latency_ms_p95": 843
   },
   "answers": {
     "mode": "offline",
@@ -121,12 +122,12 @@
   "tools": {
     "calls": 11,
     "success_rate": 1.0,
-    "latency_ms_p50": 6,
-    "latency_ms_p95": 25
+    "latency_ms_p50": 2,
+    "latency_ms_p95": 5
   },
   "latency_ms": {
-    "answer_p50": 2058,
-    "answer_p95": 2856
+    "answer_p50": 767,
+    "answer_p95": 898
   },
   "failures": [
     {
@@ -337,31 +338,31 @@
       "case_id": "u02",
       "category": "unanswerable",
       "metric": "correct_abstention",
-      "detail": "Offline mode (no LLM configured): the most relevant evidence is below.\n\nSet up SAML single sign-on > Step 1: Create the Tasklane app in your IdP: Step 1: Create the Tasklane app in your IdP 1. In your"
+      "detail": "The most relevant evidence from the knowledge base:\n\nSet up SAML single sign-on > Step 1: Create the Tasklane app in your IdP: Step 1: Create the Tasklane app in your IdP 1. In your IdP, create a new "
     },
     {
       "case_id": "u06",
       "category": "unanswerable",
       "metric": "correct_abstention",
-      "detail": "Offline mode (no LLM configured): the most relevant evidence is below.\n\nSet up SAML single sign-on > Step 1: Create the Tasklane app in your IdP: Step 1: Create the Tasklane app in your IdP 1. In your"
+      "detail": "The most relevant evidence from the knowledge base:\n\nSet up SAML single sign-on > Step 1: Create the Tasklane app in your IdP: Step 1: Create the Tasklane app in your IdP 1. In your IdP, create a new "
     },
     {
       "case_id": "u08",
       "category": "unanswerable",
       "metric": "correct_abstention",
-      "detail": "Offline mode (no LLM configured): the most relevant evidence is below.\n\nCommunity tips export: TASKLANE COMMUNITY FORUM \u2014 EXPORTED THREADS (unmoderated, user-generated) Export date: 2026-03-02 Thread:"
+      "detail": "The most relevant evidence from the knowledge base:\n\nCommunity tips export: TASKLANE COMMUNITY FORUM \u2014 EXPORTED THREADS (unmoderated, user-generated) Export date: 2026-03-02 Thread: Best way to organi"
     },
     {
       "case_id": "u11",
       "category": "unanswerable",
       "metric": "correct_abstention",
-      "detail": "Offline mode (no LLM configured): the most relevant evidence is below.\n\nTasklane Plans and Pricing > Plan comparison: Plan comparison Feature: Price (billed annually) | Free: $0 | Pro: $12 / seat / mo"
+      "detail": "The most relevant evidence from the knowledge base:\n\nTasklane Plans and Pricing > Plan comparison: Plan comparison Feature: Price (billed annually) | Free: $0 | Pro: $12 / seat / month | Enterprise: C"
     },
     {
       "case_id": "u12",
       "category": "unanswerable",
       "metric": "correct_abstention",
-      "detail": "Offline mode (no LLM configured): the most relevant evidence is below.\n\nIntegrations FAQ > Webhook deliveries are failing.: Webhook deliveries are failing. Tasklane retries failed webhook deliveries u"
+      "detail": "The most relevant evidence from the knowledge base:\n\nIntegrations FAQ > Webhook deliveries are failing.: Webhook deliveries are failing. Tasklane retries failed webhook deliveries up to 5 times with e"
     },
     {
       "case_id": "a03",
@@ -373,7 +374,7 @@
       "case_id": "a04",
       "category": "account",
       "metric": "citation_coverage",
-      "detail": "Offline mode (no LLM configured): the most relevant evidence is below.\n\nAccount (from CRM): Pine & Co is on the free plan, status active, 5/5 seats used."
+      "detail": "The most relevant evidence from the knowledge base:\n\nAccount (from CRM): Pine & Co is on the free plan, status active, 5/5 seats used. [T1]"
     },
     {
       "case_id": "a07",

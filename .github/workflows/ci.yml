@@ -74,7 +74,13 @@ jobs:
       - run: npm ci --no-audit --no-fund
       - run: npm run lint
       - run: npm run typecheck
-      - run: npm run build
+      - name: Build
+        run: |
+          set -o pipefail
+          npm run build 2>&1 | tee build.log
         env:
           API_URL: http://localhost:8001
           NEXT_TELEMETRY_DISABLED: 1
+      - name: Report build errors as annotations
+        if: failure()
+        run: tail -n 25 build.log | sed 's/^/::error title=next build::/'

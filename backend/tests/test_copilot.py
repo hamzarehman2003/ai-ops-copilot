@@ -9,6 +9,7 @@ from app.config import get_settings
 from app.db import get_session
 from app.generation.copilot import ask
 from app.generation.llm import LLMError, LLMTurn, ToolUse
+from app.generation.prompts import PROMPT_VERSION
 from app.main import app
 from app.models import ActionStatus, Customer, ProposedAction, ToolCallStatus, User
 
@@ -130,6 +131,42 @@ def test_unknown_markers_are_removed_from_the_answer_text(indexed):
     )
     assert run.payload.citations == ["S1"]
     assert run.payload.answer == "Refunds take 5 days [S1]. Ask billing."
+
+
+def test_account_answers_cite_the_tool_result(indexed):
+    llm = FakeLLM(
+        [("get_account_status", {"customer_id": "CUST-1001"})],
+        answer("The workspace is suspended [T1].", ["T1"]),
+    )
+    run = ask(
+        indexed.session,
+        indexed.settings,
+        agent(indexed),
+        "What is their account status?",
+        customer=customer(indexed, "CUST-1001"),
+        llm=llm,
+    )
+    assert not run.payload.abstained and run.payload.citations == ["T1"]
+    tool_result = json.loads(llm.requests[1]["messages"][-1]["content"][0]["content"])
+    assert tool_result["source_id"] == "T1" and tool_result["account_status"] == "suspended"
+
+
+def test_a_successful_tool_call_does_not_excuse_an_uncited_answer(indexed):
+    """The model looked up the account, then answered a policy question from memory."""
+    llm = FakeLLM(
+        [("get_account_status", {"customer_id": "CUST-1001"})],
+        answer("Refunds are always available within 60 days."),
+    )
+    run = ask(
+        indexed.session,
+        indexed.settings,
+        agent(indexed),
+        "What is the refund window?",
+        customer=customer(indexed, "CUST-1001"),
+        llm=llm,
+    )
+    assert run.payload.abstained
+    assert any("no valid citation" in w for w in run.warnings)
 
 
 def test_an_abstaining_answer_never_creates_a_proposal(indexed):
@@ -346,7 +383,7 @@ def test_search_and_meta(client):
     found = client.get("/api/search", params={"q": "SSO-429", "mode": "lexical"}, headers=AGENT)
     assert found.json()["results"][0]["filename"] == "sso-setup-guide.html"
     meta = client.get("/api/meta", headers=AGENT).json()
-    assert meta["prompt_version"] == "grounded-answer-v1"
+    assert meta["prompt_version"] == PROMPT_VERSION
     assert meta["index"]["current_chunks"] > 0
 
 

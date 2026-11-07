@@ -3,8 +3,9 @@
 Code, not the model, owns every rule that matters:
 - retrieval is scoped to the caller's workspace inside the query;
 - tools only see the customer the human selected (checked in tools/registry.py);
-- citations are checked against what was actually retrieved; an answer with no valid
-  citation and no successful tool result is turned into an abstention ("cite or abstain");
+- citations are checked against what was actually retrieved ([S#] = a document) or returned
+  by a tool in this run ([T#] = a successful tool result); an answer with no valid citation is
+  turned into an abstention ("cite or abstain");
 - a proposed action is validated and stored as `pending`; nothing is executed here.
 
 Without an API key the copilot runs in *offline* mode: the same retrieval and tools, but the
@@ -30,14 +31,15 @@ from app.generation.prompts import (
     SYSTEM_PROMPT,
     build_user_prompt,
     source_id,
+    tool_source_id,
 )
-from app.models import Conversation, Customer, Message, User
+from app.models import Conversation, Customer, Message, ToolCall, ToolCallStatus, User
 from app.retrieval.reranker import relevance
 from app.retrieval.search import RetrievalResult, RetrievedChunk, retrieve
 from app.tools.actions import ActionError, payload_value, propose_action
 from app.tools.registry import READ_TOOLS, ToolContext, run_tool
 
-CITATION = re.compile(r"\[(S\d+)\]")
+CITATION = re.compile(r"\[([ST]\d+)\]")
 Progress = Callable[[dict], None]  # receives {"step": ..., ...} as the run advances (UI only)
 HISTORY_MESSAGES = 6
 NO_EVIDENCE = (
@@ -211,11 +213,15 @@ def _run_llm(
             results = []
             for tool_use in turn.tool_uses:  # all results go back in ONE user message
                 outcome = _run_tool(ctx, tool_use.name, tool_use.input, emit)
+                content = outcome.for_model()
+                if outcome.ok:  # citable as [T#], like documents are [S#]
+                    sid = tool_source_ids(ctx.calls)[outcome.record.id]
+                    content = json.dumps({"source_id": sid, **outcome.result})
                 results.append(
                     {
                         "type": "tool_result",
                         "tool_use_id": tool_use.id,
-                        "content": outcome.for_model(),
+                        "content": content,
                         "is_error": not outcome.ok,
                     }
                 )
@@ -234,27 +240,28 @@ def _run_llm(
 def _offline_answer(
     chunks: list[RetrievedChunk], customer: Customer | None, ctx: ToolContext, emit: Progress
 ) -> AnswerPayload:
-    lines = []
+    lines, cited = [], []
     if customer is not None:
         outcome = _run_tool(ctx, "get_account_status", {"customer_id": customer.external_id}, emit)
         if outcome.ok:
             a = outcome.result
+            sid = tool_source_ids(ctx.calls)[outcome.record.id]
             lines.append(
                 f"Account (from CRM): {a['name']} is on the {a['plan']} plan, status "
                 f"{a['account_status']}, {a['seats_used']}/{a['seats_paid']} seats used"
                 + (f". Billing note: {a['billing_note'].rstrip('.')}" if a["billing_note"] else "")
-                + "."
+                + f". [{sid}]"
             )
+            cited.append(sid)
         else:
             lines.append(f"Account status unavailable (tool error: {outcome.error_code}).")
 
-    cited = []
     for i, chunk in enumerate(chunks[:3]):
         heading = " > ".join(chunk.heading_path) or chunk.document_title
         lines.append(f"{heading}: {_snippet(chunk.content, 320)} [{source_id(i)}]")
         cited.append(source_id(i))
 
-    if not cited and not any(c.status == "ok" for c in ctx.calls):
+    if not cited:
         return _abstain("No relevant documentation was found for this question.")
     header = "The most relevant evidence from the knowledge base:"
     return AnswerPayload(
@@ -274,7 +281,7 @@ def _enforce_grounding(
     ctx: ToolContext,
     warnings: list[str],
 ) -> AnswerPayload:
-    known = {source_id(i) for i in range(len(chunks))}
+    known = {source_id(i) for i in range(len(chunks))} | set(tool_source_ids(ctx.calls).values())
     claimed = set(payload.citations) | set(CITATION.findall(payload.answer))
     invalid = claimed - known
     if invalid:
@@ -285,11 +292,12 @@ def _enforce_grounding(
         )
         payload.answer = re.sub(r"[ \t]+([.,;:!?])", r"\1", payload.answer)
         payload.answer = re.sub(r"(?<=\S)[ \t]{2,}", " ", payload.answer).strip()
-    valid = sorted(claimed & known, key=lambda s: int(s[1:]))
+    valid = sorted(claimed & known, key=lambda s: (s[0], int(s[1:])))
     payload.citations = valid
 
-    tool_backed = any(c.status == "ok" for c in ctx.calls)
-    if not payload.abstained and not valid and not tool_backed:
+    # A successful tool call alone is not evidence: the answer must cite it ([T#]) or a
+    # document ([S#]), so a policy answer can't ride on an unrelated account lookup.
+    if not payload.abstained and not valid:
         warnings.append("Answer had no valid citation or tool evidence; converted to abstention.")
         return _abstain(payload.missing_information or "No supporting evidence was cited.")
     return payload
@@ -414,6 +422,12 @@ def citation_list(run: CopilotRun) -> list[dict]:
         for i, c in enumerate(run.retrieval.chunks)
         if source_id(i) in run.payload.citations
     ]
+
+
+def tool_source_ids(calls: list[ToolCall]) -> dict[uuid.UUID, str]:
+    """[T#] ids of a run's successful tool calls, in call order (failed attempts get none)."""
+    ok = [c for c in calls if c.status == ToolCallStatus.OK]
+    return {c.id: tool_source_id(i) for i, c in enumerate(ok)}
 
 
 def source_list(run: CopilotRun) -> list[dict]:

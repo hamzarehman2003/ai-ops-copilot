@@ -50,6 +50,11 @@ function ToolCall({ call: c }: { call: ToolCallOut }) {
             name="chevronRight"
             className="size-3 text-muted-foreground/70 transition-transform group-data-[state=open]/call:rotate-90"
           />
+          {c.source_id && (
+            <span className="rounded-sm border bg-muted px-1.5 font-mono text-[10.5px] font-medium text-foreground/80">
+              {c.source_id}
+            </span>
+          )}
           <span className="font-mono font-medium text-foreground">{c.tool_name}</span>
           <StatusBadge status={c.status} />
           {c.error_code && <span className="font-mono text-destructive">{c.error_code}</span>}

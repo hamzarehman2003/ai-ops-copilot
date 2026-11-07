@@ -186,6 +186,21 @@ One entry per decision. This is interview prep: be able to defend every line.
 - **Known trade-offs / when I'd revisit:** effort `medium` not yet tuned; no prompt caching
   (prompt below the cacheable minimum).
 
+### Tool results are citable sources ([T#]); no "any tool call" pass — 2026-11-07
+- **Choice:** each successful tool result gets a `source_id` (`T1`, `T2`...) in what the model
+  sees; answers cite it like a document. "Cite or abstain" now requires at least one valid
+  `[S#]` or `[T#]`; before, any successful tool call let an uncited answer through. Unknown
+  markers are also removed from the answer text, not only from `citations`. Prompt v2 also
+  marks tool output (ticket text) as untrusted, like documents.
+- **Why:** review finding: with a customer selected, the model could look up the account and
+  then answer a policy question from memory, uncited, and pass the check.
+- **Eval evidence:** offline run `20261107T183538Z` vs `20261104T135019Z`: every answer and
+  retrieval metric unchanged (expected: offline answers only gain a `[T1]`). Local
+  qwen3.5:9b spot check (5 demo scenarios): the account answers cite `[T1]`, and no new
+  abstentions. LLM-mode numbers: see the faithfulness entry once it lands.
+- **Known trade-offs / when I'd revisit:** a citation is still only checked to exist, not to
+  support its sentence (that needs an NLI model or an LLM judge).
+
 ### Embedding column deferred to Step 5 — 2026-11-03
 - **Choice:** `chunks` has no `embedding vector(N)` column yet.
 - **Why:** `N` is fixed by the embedding model (e.g. 384 / 768 / 1536), which is not chosen
