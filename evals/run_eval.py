@@ -37,12 +37,13 @@ for candidate in (HERE.parent / "backend", Path.cwd(), Path("/app")):
         break
 
 from fastapi.testclient import TestClient  # noqa: E402
+from judge import JUDGE_PROMPT_VERSION, judge_faithfulness  # noqa: E402
 from sqlalchemy import create_engine, func, select  # noqa: E402
 from sqlalchemy.orm import Session  # noqa: E402
 
 from app.config import Settings, get_settings  # noqa: E402
 from app.db import get_session  # noqa: E402
-from app.generation.copilot import ask  # noqa: E402
+from app.generation.copilot import ask, tool_source_ids  # noqa: E402
 from app.generation.llm import get_llm  # noqa: E402
 from app.generation.prompts import PROMPT_VERSION, source_id  # noqa: E402
 from app.main import app  # noqa: E402
@@ -73,6 +74,17 @@ def main() -> int:
     parser.add_argument("--llm", action="store_true", help="generate answers with the LLM")
     parser.add_argument("--limit", type=int, default=None, help="only the first N cases")
     parser.add_argument(
+        "--judge",
+        action="store_true",
+        help="with --llm: score faithfulness (claims supported by the context) with an LLM judge",
+    )
+    parser.add_argument(
+        "--judge-model",
+        default=None,
+        help="judge model on the same provider (default: the answering model; a different "
+        "model avoids grading its own text)",
+    )
+    parser.add_argument(
         "--deprecate",
         action="append",
         default=[],
@@ -95,6 +107,16 @@ def main() -> int:
             "(ANTHROPIC_API_KEY, or LLM_API_KEY with LLM_PROVIDER=openai)"
         )
         return 2
+    judge = None
+    if args.judge:
+        if llm is None:
+            print("--judge needs --llm (offline answers are verbatim quotes)")
+            return 2
+        judge_settings = settings.model_copy(
+            update={"llm_model": args.judge_model or settings.llm_model, "llm_fallback_models": ""}
+        )
+        judge = get_llm(judge_settings)
+        print(f"Judge: {judge_settings.llm_model} ({JUDGE_PROMPT_VERSION})")
     if llm:
         print(
             f"LLM mode: {len(cases)} cases will call {settings.llm_provider}/{settings.llm_model} "
@@ -116,7 +138,7 @@ def main() -> int:
                     raise SystemExit(f"--deprecate: no source named {filename}")
                 document.deprecated = True
             session.flush()
-            report, rows = run(session, settings, cases, args.k, llm)
+            report, rows = run(session, settings, cases, args.k, llm, judge)
         finally:
             session.close()
             outer.rollback()  # leave no trace in the database
@@ -133,7 +155,9 @@ def main() -> int:
     return 0
 
 
-def run(session: Session, settings: Settings, cases: list[dict], k: int, llm) -> tuple[dict, list]:
+def run(
+    session: Session, settings: Settings, cases: list[dict], k: int, llm, judge=None
+) -> tuple[dict, list]:
     users = {u.email: u for u in session.scalars(select(User))}
     tasklane = users[DEFAULT_USER]
     index = _index_info(session, tasklane.workspace_id)
@@ -144,7 +168,7 @@ def run(session: Session, settings: Settings, cases: list[dict], k: int, llm) ->
     rows: list[dict] = []
     retrieval = _eval_retrieval(session, settings, cases, tasklane, k, failures)
     answers, tools, security, latencies = _eval_answers(
-        session, settings, cases, users, llm, failures, rows
+        session, settings, cases, users, llm, failures, rows, judge
     )
     security.update(_eval_http(session, settings, cases, users, failures))
     security["cross_tenant_leaks"] += retrieval.pop("_leaks")
@@ -159,6 +183,8 @@ def run(session: Session, settings: Settings, cases: list[dict], k: int, llm) ->
             "llm_provider": settings.llm_provider if llm else None,
             "llm_model": settings.llm_model if llm else None,
             "llm_effort": settings.llm_effort if llm else None,
+            "judge_model": getattr(judge, "model", None),
+            "judge_prompt_version": JUDGE_PROMPT_VERSION if judge else None,
             "prompt_version": PROMPT_VERSION,
             "deprecated_sources": sorted(
                 session.scalars(
@@ -275,11 +301,14 @@ def _count_leaks(session, workspace_id, chunks, case) -> int:
 # --- Answers, tools, security ----------------------------------------------------------------
 
 
-def _eval_answers(session, settings, cases, users, llm, failures, rows):
+def _eval_answers(session, settings, cases, users, llm, failures, rows, judge=None):
     counts = Counter()
     answer_latency, tool_latency = [], []
     tool_calls = tool_ok = 0
     security = Counter()
+    faithfulness: list[float] = []
+    judge_errors = 0
+    to_judge: list[tuple] = []  # judged after all answers: one model swap, not one per case
     for case in cases:
         if case["category"] in ("unauthorized_action",) or case.get("expect_http_status"):
             continue
@@ -318,6 +347,7 @@ def _eval_answers(session, settings, cases, users, llm, failures, rows):
             "tool_calls": "|".join(f"{c.tool_name}:{c.status}" for c in run.tool_ctx.calls),
             "proposed_action": run.payload.proposed_action.type,
             "latency_ms": answer_latency[-1],
+            "faithfulness": "",
             "checks_failed": "",
         }
 
@@ -359,6 +389,13 @@ def _eval_answers(session, settings, cases, users, llm, failures, rows):
         if status := case.get("expect_tool_status"):
             statuses = [c.status for c in run.tool_ctx.calls]
             check("tool_fault_handled", bool(statuses) and statuses[0] == status, f"{statuses}")
+        if judge and run.mode == "llm" and not run.payload.abstained:
+            context = {source_id(i): c.content for i, c in enumerate(run.retrieval.chunks)}
+            tool_ids = tool_source_ids(run.tool_ctx.calls)
+            for call in run.tool_ctx.calls:
+                if call.id in tool_ids:
+                    context[tool_ids[call.id]] = json.dumps(call.result)
+            to_judge.append((case, row, run.payload.answer, context))
         forbidden_actions = case.get("forbid_action_types", [])
         if run.payload.proposed_action.type in forbidden_actions:
             security["injection_followed"] += 1
@@ -379,6 +416,18 @@ def _eval_answers(session, settings, cases, users, llm, failures, rows):
                 tool_ok += call.status == "ok"
                 tool_latency.append(call.latency_ms)
         rows.append(row)
+
+    for case, row, answer, context in to_judge:
+        verdict = judge_faithfulness(judge, answer, context)
+        if verdict.score is None:
+            judge_errors += verdict.error is not None
+            continue
+        faithfulness.append(verdict.score)
+        row["faithfulness"] = round(verdict.score, 3)
+        if verdict.unsupported:
+            failures.append(
+                _failure(case, "unsupported_claims", " | ".join(verdict.unsupported)[:400])
+            )
 
     executed = session.scalar(
         select(func.count())
@@ -402,6 +451,9 @@ def _eval_answers(session, settings, cases, users, llm, failures, rows):
         "n": len(rows),
         **{m: rate(m) for m in metrics},
         "checks": {m: counts[f"{m}_n"] for m in metrics},
+        "faithfulness": round(statistics.fmean(faithfulness), 4) if faithfulness else None,
+        "faithfulness_n": len(faithfulness) if judge else None,
+        "judge_errors": judge_errors if judge else None,
         "note": None
         if llm
         else "Offline mode quotes retrieved evidence instead of generating text, so "
@@ -518,12 +570,19 @@ def _pct(values: list[int], p: int) -> int | None:
 
 
 def _git_commit() -> str | None:
+    """HEAD, plus "-dirty" when tracked files have uncommitted changes (results are only
+    reproducible from a clean commit)."""
     try:
-        return subprocess.check_output(
+        commit = subprocess.check_output(
             ["git", "rev-parse", "--short", "HEAD"], cwd=HERE, text=True, stderr=subprocess.DEVNULL
         ).strip()
+        dirty = subprocess.check_output(
+            ["git", "status", "--porcelain", "--untracked-files=no", "--", ".", ":!evals/results"],
+            cwd=HERE.parent, text=True, stderr=subprocess.DEVNULL,
+        ).strip()  # fmt: skip
     except (OSError, subprocess.CalledProcessError):
         return None
+    return f"{commit}-dirty" if dirty else commit
 
 
 def print_summary(report: dict) -> None:
