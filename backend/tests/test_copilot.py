@@ -4,9 +4,11 @@ from collections.abc import Iterator
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.db import get_session
+from app.deps import get_session_factory
 from app.generation.copilot import ask
 from app.generation.llm import LLMError, LLMTurn, ToolUse
 from app.generation.prompts import PROMPT_VERSION
@@ -351,12 +353,29 @@ def test_follow_up_context_can_be_switched_off(indexed):
 def client(indexed) -> Iterator[TestClient]:
     app.dependency_overrides[get_session] = lambda: indexed.session
     app.dependency_overrides[get_settings] = lambda: indexed.settings
+    app.dependency_overrides[get_session_factory] = lambda: worker_sessions(indexed)
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()
 
 
 AGENT = {"X-User": "agent@tasklane.example"}
+OPENED: list[Session] = []
+
+
+def worker_sessions(indexed):
+    """Sessions for the stream's worker thread, in the test's rolled-back transaction."""
+
+    def factory() -> Session:
+        session = Session(
+            bind=indexed.session.connection(),
+            join_transaction_mode="create_savepoint",
+            expire_on_commit=False,
+        )
+        OPENED.append(session)
+        return session
+
+    return factory
 
 
 def test_query_endpoint_offline(client, indexed):
@@ -487,6 +506,13 @@ def test_stream_endpoint_sends_progress_then_the_same_result(client, indexed):
     result = events[-1][1]
     assert result["mode"] == "offline" and result["citations"]
     assert result["tool_calls"][0]["tool_name"] == "get_account_status"
+
+
+def test_stream_work_runs_on_its_own_session(client, indexed):
+    """The worker thread must not share the request's Session (Sessions aren't thread-safe)."""
+    OPENED.clear()
+    client.post("/api/copilot/query/stream", headers=AGENT, json={"question": QUESTION})
+    assert len(OPENED) == 1 and OPENED[0] is not indexed.session
 
 
 def test_stream_for_another_tenants_customer_is_404_before_streaming(client, indexed):

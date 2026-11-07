@@ -12,7 +12,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.deps import CurrentUser, SessionDep, SettingsDep, WorkspaceDep
+from app.deps import CurrentUser, SessionDep, SessionFactoryDep, SettingsDep, WorkspaceDep
 from app.generation.copilot import (
     CopilotRun,
     ask,
@@ -21,7 +21,7 @@ from app.generation.copilot import (
     source_list,
     tool_source_ids,
 )
-from app.generation.llm import get_llm
+from app.generation.llm import open_llm
 from app.models import Customer, Message, RetrievalTrace, ToolCall, User
 from app.retrieval.search import chunk_to_dict, retrieve
 from app.schemas import FeedbackIn, QueryIn
@@ -34,54 +34,81 @@ log = logging.getLogger(__name__)
 def query(body: QueryIn, user: CurrentUser, session: SessionDep, settings: SettingsDep) -> dict:
     """Ask the copilot. `customer_id` (optional) is the customer the agent is working on."""
     customer = _customer(session, user, body.customer_id)
-    run = ask(
-        session,
-        settings,
-        user,
-        body.question,
-        customer=customer,
-        conversation_id=body.conversation_id,
-        llm=get_llm(settings),
-    )
+    with open_llm(settings) as llm:
+        run = ask(
+            session,
+            settings,
+            user,
+            body.question,
+            customer=customer,
+            conversation_id=body.conversation_id,
+            llm=llm,
+        )
     return _response(run)
+
+
+class _ClientGone(Exception):
+    """The browser closed the stream: stop before paying for more model calls."""
 
 
 @router.post("/copilot/query/stream")
 def query_stream(
-    body: QueryIn, user: CurrentUser, session: SessionDep, settings: SettingsDep
+    body: QueryIn,
+    user: CurrentUser,
+    session: SessionDep,
+    settings: SettingsDep,
+    session_factory: SessionFactoryDep,
 ) -> StreamingResponse:
     """Same as /copilot/query, as Server-Sent Events: `progress` events while the copilot works
     (retrieval, each tool call, each model round, checks), then one `result` event with the
     /copilot/query body, or an `error` event. Authorization happens before the stream starts,
-    so a bad customer is still a plain 404."""
+    so a bad customer is still a plain 404.
+
+    The work runs in a thread with its own session (a Session must never be shared across
+    threads); the request's session ends its read transaction before streaming starts."""
     customer = _customer(session, user, body.customer_id)
+    user_id, customer_id = user.id, customer.id if customer else None
+    session.rollback()  # end the read-only transaction: no pooled connection held while streaming
     events: queue.Queue = queue.Queue()
+    client_gone = threading.Event()
+
+    def progress(event: dict) -> None:
+        if client_gone.is_set():
+            raise _ClientGone
+        events.put(("progress", event))
 
     def work() -> None:
-        try:
-            run = ask(
-                session,
-                settings,
-                user,
-                body.question,
-                customer=customer,
-                conversation_id=body.conversation_id,
-                llm=get_llm(settings),
-                on_progress=lambda event: events.put(("progress", event)),
-            )
-            events.put(("result", _response(run)))
-        except Exception:
-            log.exception("copilot stream failed")
-            session.rollback()
-            events.put(("error", {"detail": "The copilot failed while answering."}))
-        finally:
-            events.put(None)
+        with session_factory() as worker_session, open_llm(settings) as llm:
+            try:
+                run = ask(
+                    worker_session,
+                    settings,
+                    worker_session.get_one(User, user_id),
+                    body.question,
+                    customer=worker_session.get(Customer, customer_id) if customer_id else None,
+                    conversation_id=body.conversation_id,
+                    llm=llm,
+                    on_progress=progress,
+                )
+                events.put(("result", _response(run)))
+            except _ClientGone:
+                log.info("copilot stream: client disconnected, stopped early")
+                worker_session.rollback()
+            except Exception:
+                log.exception("copilot stream failed")
+                worker_session.rollback()
+                events.put(("error", {"detail": "The copilot failed while answering."}))
+            finally:
+                events.put(None)
 
     def stream() -> Iterator[str]:
         threading.Thread(target=work, daemon=True).start()
-        while (item := events.get()) is not None:
-            kind, data = item
-            yield f"event: {kind}\ndata: {json.dumps(jsonable_encoder(data))}\n\n"
+        try:
+            while (item := events.get()) is not None:
+                kind, data = item
+                yield f"event: {kind}\ndata: {json.dumps(jsonable_encoder(data))}\n\n"
+        finally:  # normal end, or the client went away (generator closed)
+            client_gone.set()
 
     return StreamingResponse(
         stream(),

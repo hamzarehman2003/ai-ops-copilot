@@ -139,6 +139,9 @@ def ask(
 
     payload, mode, model = None, "offline", None
     if llm is not None:
+        # Never hold a transaction (and a pooled connection) while waiting on the network:
+        # commit what we have (question, trace) before the model runs; tool rounds commit too.
+        session.commit()
         try:
             payload, model = _run_llm(
                 llm, settings, question, retrieval.chunks, customer, ctx, history, emit
@@ -229,6 +232,7 @@ def _run_llm(
                     }
                 )
             messages.append({"role": "user", "content": results})
+            ctx.session.commit()  # tool-call records, before the next (slow) model turn
             continue
         try:
             return AnswerPayload.model_validate(json.loads(turn.text)), turn.model

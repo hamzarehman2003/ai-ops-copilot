@@ -17,7 +17,8 @@ Anthropic request shape (claude-opus-5-5):
 import json
 import re
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
@@ -68,6 +69,8 @@ class LLM(Protocol):
         self, *, system: str, messages: list, tools: list[dict], output_schema: dict
     ) -> LLMTurn: ...
 
+    def close(self) -> None: ...  # release the HTTP connection pool
+
 
 class AnthropicLLM:
     def __init__(self, settings: Settings) -> None:
@@ -79,6 +82,9 @@ class AnthropicLLM:
         self.client = anthropic.Anthropic(
             api_key=settings.anthropic_api_key, timeout=settings.llm_timeout_s, max_retries=2
         )
+
+    def close(self) -> None:
+        self.client.close()
 
     def turn(
         self, *, system: str, messages: list, tools: list[dict], output_schema: dict
@@ -169,6 +175,9 @@ class OpenAICompatLLM:
             headers={"Authorization": f"Bearer {settings.llm_api_key}"},
             timeout=settings.llm_timeout_s,
         )
+
+    def close(self) -> None:
+        self.client.close()
 
     @property
     def model(self) -> str:
@@ -371,6 +380,17 @@ def _error_text(response: httpx.Response) -> str:
         return str(data.get("error", {}).get("message") or data)[:200]
     except (ValueError, AttributeError, IndexError):
         return response.text[:200]
+
+
+@contextmanager
+def open_llm(settings: Settings) -> Iterator[LLM | None]:
+    """`get_llm` for one request; closes the client's connection pool afterwards."""
+    llm = get_llm(settings)
+    try:
+        yield llm
+    finally:
+        if llm is not None:
+            llm.close()
 
 
 def get_llm(settings: Settings) -> LLM | None:
