@@ -56,7 +56,13 @@ class ProposedActionOut(BaseModel):
     reason: str
 
 
+class EvidenceItem(BaseModel):
+    source_id: str
+    fact: str
+
+
 class AnswerPayload(BaseModel):
+    evidence: list[EvidenceItem] = []  # what the model relied on (stored, not shown inline)
     answer: str
     citations: list[str]
     abstained: bool
@@ -163,6 +169,7 @@ def ask(
     message.data = {
         "abstained": payload.abstained,
         "missing_information": payload.missing_information,
+        "evidence": [e.model_dump() for e in payload.evidence],
         "citations": [
             _citation(c, i)
             for i, c in enumerate(retrieval.chunks)

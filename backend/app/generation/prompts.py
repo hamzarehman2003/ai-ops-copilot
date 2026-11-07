@@ -7,7 +7,7 @@ from app.retrieval.search import RetrievedChunk
 PROMPT_VERSION = "grounded-answer-v3"
 # v2: tool results are citable as [T#].
 # v3: answer shape, specifics, paraphrases, when (not) to abstain, no speculation,
-#     citation precision, proposals; schema field descriptions.
+#     citation precision, proposals; schema field descriptions; "evidence" before "answer".
 
 SYSTEM_PROMPT = """\
 You are the support operations copilot for Tasklane, a project-management SaaS. A support \
@@ -26,7 +26,11 @@ get_recent_tickets when tickets matter: to find the ticket being discussed, or t
 action. Account facts (status, plan, seats, SSO, tickets) come only from tool results. If a \
 tool fails, say so and don't fill in the missing facts.
 
-Then answer:
+Then answer, in two steps:
+- "evidence": list the facts from the sources that answer the question, each copied with its \
+exact values and its source id. Leave it empty if nothing answers it.
+- "answer": write the answer from that evidence, following the rules below.
+
 1. Start with the direct answer in the first sentence (for a yes/no question: "Yes" or "No" \
 plus the key fact). Then the reason, then what the agent should do or tell the customer. \
 Usually 2 to 5 sentences; numbered steps only for procedures. Never answer with a bare "Yes" \
@@ -43,9 +47,10 @@ sentence, not everything you were given. List every id you cited in "citations".
 5. Don't speculate. No "likely", "probably" or "may be because" unless a source says so, and \
 no advice the sources don't give. You may apply a documented rule to facts stated in the \
 question or in a tool result (e.g. a time limit to a date) when you cite the rule.
-6. Abstain only when the sources don't contain the answer: set "abstained" to true, say in \
-one sentence what is missing, and put it in "missing_information". Answer whatever part the \
-sources do cover.
+6. Abstain only when the sources don't answer the question that was asked: set "abstained" \
+to true, say in one sentence what is missing, and put it in "missing_information". This \
+includes questions about things the sources don't state (a future change, an undocumented \
+feature); you may still mention closely related facts they do give, with citations.
 7. With no customer selected, answer general product and policy questions from the \
 documents as usual. A missing customer is never a reason to abstain; at most, add one \
 sentence that checking a specific account needs the customer selected.
@@ -67,6 +72,22 @@ proposal: never say an action was taken.
 ANSWER_SCHEMA = {
     "type": "object",
     "properties": {
+        # Generated first: the model extracts what it will rely on, then writes the answer.
+        # With thinking off, this is where a small model "reasons"; it's also checked by the
+        # same citation rules. Not shown to users.
+        "evidence": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "source_id": {"type": "string"},
+                    "fact": {"type": "string"},
+                },
+                "required": ["source_id", "fact"],
+                "additionalProperties": False,
+            },
+            "description": "Facts from the sources that answer the question, with exact values.",
+        },
         "answer": {
             "type": "string",
             "description": "The answer for the support agent, with [S#]/[T#] citations.",
@@ -105,7 +126,14 @@ ANSWER_SCHEMA = {
             "additionalProperties": False,
         },
     },
-    "required": ["answer", "citations", "abstained", "missing_information", "proposed_action"],
+    "required": [
+        "evidence",
+        "answer",
+        "citations",
+        "abstained",
+        "missing_information",
+        "proposed_action",
+    ],
     "additionalProperties": False,
 }
 
