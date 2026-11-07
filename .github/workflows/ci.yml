@@ -84,3 +84,16 @@ jobs:
       - name: Report build errors as annotations
         if: failure()
         run: tail -n 25 build.log | sed 's/^/::error title=next build::/'
+
+  images:
+    name: Docker images (production targets)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - name: Backend runtime image (non-root, no dev deps)
+        run: |
+          docker build -t ops-copilot-api backend
+          test "$(docker run --rm --entrypoint id ops-copilot-api -u)" != "0"
+      - name: Frontend image
+        run: docker build -t ops-copilot-web frontend

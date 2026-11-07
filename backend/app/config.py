@@ -38,7 +38,7 @@ class Settings(BaseSettings):
     # Completions endpoint (Gemini, Ollama, Groq, OpenAI...) at llm_base_url with llm_api_key.
     llm_provider: str = "anthropic"
     anthropic_api_key: str | None = None
-    llm_base_url: str = "https://generativelanguage.googleapis.com/v1beta/openai"
+    llm_base_url: str = "https://api.openai.com/v1"
     llm_api_key: str | None = None  # Ollama ignores it, but set any non-empty value
     llm_model: str = "claude-opus-5-5"
     # OpenAI-compatible only: comma-separated models tried in order when llm_model is out of

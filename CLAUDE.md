@@ -69,6 +69,8 @@ docs/                     spec, architecture, rag-decisions, interview-prep
 Host ports: Postgres **5433**, API **8001** (5432/8000 are used by other local projects).
 
 - Start stack: `docker compose up -d --build` (from repo root)
+  (compose builds the backend's `dev` image target: dev deps, bind mount, `--reload`; the
+  default `runtime` target is the production-shaped image: `docker build -t ops-copilot-api backend`)
 - DB only: `docker compose up -d db`
 - Health check: `curl http://localhost:8001/health`
 - Dependencies: pinned in `backend/requirements.txt` (runtime) and `requirements-dev.txt`

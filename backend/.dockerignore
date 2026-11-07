@@ -1,5 +1,12 @@
 .venv/
 __pycache__/
+*.pyc
 .pytest_cache/
 .ruff_cache/
 *.egg-info/
+# Downloaded embedding/reranker models (~150 MB): a volume at runtime, never baked in
+.cache/
+# Local uploads (a volume at runtime)
+uploads/
+.env
+.env.*
