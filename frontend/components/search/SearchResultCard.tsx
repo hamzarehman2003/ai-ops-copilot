@@ -95,7 +95,7 @@ export function SearchResultCard({
 function Score({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
   return (
     <div className="min-w-0 flex-1 border-l px-1 py-1.5 first:border-l-0">
-      <dt className="text-[0.92em] tracking-[0.08em] text-muted-foreground uppercase">{label}</dt>
+      <dt className="text-[0.92em] text-muted-foreground">{label}</dt>
       <dd
         className={cn(
           "numeric",

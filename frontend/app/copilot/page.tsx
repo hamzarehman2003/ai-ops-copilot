@@ -14,7 +14,7 @@ import {
   InputGroupTextarea,
 } from "@/components/ui/input-group";
 import { Kbd } from "@/components/ui/kbd";
-import { api, type ProgressEvent, type QueryResponse } from "@/lib/api";
+import { ACTIONS_CHANGED, api, type ProgressEvent, type QueryResponse } from "@/lib/api";
 
 const EXAMPLES: { tag: string; q: string }[] = [
   { tag: "Account", q: "Why can't the team create tasks or upload files?" },
@@ -39,7 +39,6 @@ export default function CopilotPage() {
   const [startedAt, setStartedAt] = useState(0);
   const nextId = useRef(0);
   const bottomRef = useRef<HTMLDivElement>(null);
-  const handledQuery = useRef(false);
   const inFlight = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -76,6 +75,8 @@ export default function CopilotPage() {
       );
       setConversationId(response.conversation_id);
       setTurns((t) => [...t, { kind: "assistant", id: nextId.current++, response }]);
+      // A new proposal: the nav's pending badge refreshes without waiting for a navigation.
+      if (response.proposed_action) window.dispatchEvent(new Event(ACTIONS_CHANGED));
     } catch (error) {
       if (controller.signal.aborted) return;
       setTurns((t) => [...t, { kind: "error", id: nextId.current++, error, question: q }]);
@@ -85,15 +86,18 @@ export default function CopilotPage() {
     }
   };
 
-  // A question handed over from the Overview ask bar (/copilot?q=...).
+  // A question handed over from the Overview ask bar (/copilot?q=...). Deferred and cancelled on
+  // cleanup: React Strict Mode (dev) mounts, unmounts and remounts, and the unmount aborts any
+  // answer in flight. Asking right away (guarded by a ref) left that first, aborted request
+  // "Working…" forever; this way only the surviving mount asks.
   useEffect(() => {
-    if (handledQuery.current) return;
-    handledQuery.current = true;
     const q = new URLSearchParams(window.location.search).get("q");
-    if (q) {
+    if (!q) return;
+    const timer = setTimeout(() => {
       window.history.replaceState(null, "", "/copilot");
       void ask(q);
-    }
+    });
+    return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -127,8 +131,17 @@ export default function CopilotPage() {
           <div className="flex-1 space-y-7 px-5 py-6 sm:px-8" data-testid="chat-thread">
             {turns.length === 0 && !pending && (
               <div className="mx-auto max-w-2xl py-2">
+                <span
+                  className="mb-5 flex size-11 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-plum text-white shadow-[0_10px_28px_-10px_var(--primary)] ring-1 ring-white/20 ring-inset"
+                  aria-hidden
+                >
+                  <svg viewBox="0 0 32 32" className="size-6">
+                    <circle cx="13" cy="16" r="6.5" fill="none" stroke="currentColor" strokeWidth="2.6" />
+                    <circle cx="21.5" cy="16" r="3.2" fill="currentColor" />
+                  </svg>
+                </span>
                 <p className="eyebrow">New conversation</p>
-                <p className="mt-1.5 text-[20px] font-semibold tracking-[-0.02em] text-foreground">
+                <p className="mt-1 text-[22px] font-semibold tracking-[-0.03em] text-foreground">
                   Start with a question.
                 </p>
                 <p className="mt-1.5 text-body text-muted-foreground">
@@ -143,7 +156,7 @@ export default function CopilotPage() {
                       type="button"
                       disabled={pending}
                       onClick={() => ask(ex.q)}
-                      className="group flex flex-col gap-1.5 rounded-lg border bg-card px-4 py-3 text-left shadow-card transition-colors outline-none hover:bg-accent focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30 disabled:pointer-events-none disabled:opacity-50"
+                      className="group flex flex-col gap-1.5 rounded-xl border bg-card px-4 py-3 text-left shadow-card transition-colors outline-none hover:border-primary/35 hover:bg-primary/[0.03] focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30 disabled:pointer-events-none disabled:opacity-50"
                     >
                       <span className="flex items-center justify-between gap-2" aria-hidden>
                         <span className="eyebrow group-hover:text-primary">{ex.tag}</span>
@@ -163,7 +176,7 @@ export default function CopilotPage() {
             {turns.map((turn) =>
               turn.kind === "user" ? (
                 <div key={turn.id} className="flex animate-rise justify-end">
-                  <div className="max-w-[80%] rounded-lg rounded-br-sm bg-primary px-4 py-2.5 text-ui-lg leading-relaxed whitespace-pre-wrap text-primary-foreground shadow-card">
+                  <div className="max-w-[80%] rounded-2xl rounded-br-md bg-primary px-4 py-2.5 text-ui-lg leading-relaxed whitespace-pre-wrap text-primary-foreground shadow-card">
                     {turn.text}
                   </div>
                 </div>
@@ -196,14 +209,14 @@ export default function CopilotPage() {
             <div ref={bottomRef} />
           </div>
 
-          <div className="border-t bg-muted/40 px-4 py-4 sm:px-6">
+          <div className="border-t bg-muted/30 px-4 py-4 sm:px-6">
             <form
               onSubmit={(e) => {
                 e.preventDefault();
                 void ask(question);
               }}
             >
-              <InputGroup className="rounded-lg bg-card shadow-card has-disabled:bg-card has-disabled:opacity-100">
+              <InputGroup className="glow-border rounded-xl has-disabled:opacity-100">
                 <InputGroupTextarea
                   aria-label="Question"
                   data-testid="question-input"
@@ -254,12 +267,12 @@ export default function CopilotPage() {
 function AssistantMark() {
   return (
     <span
-      className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full border bg-card shadow-card"
+      className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary to-plum text-white shadow-[0_4px_12px_-4px_var(--primary)] ring-1 ring-white/20 ring-inset"
       aria-hidden
     >
       <svg viewBox="0 0 32 32" className="size-4">
-        <circle cx="13" cy="16" r="6.5" fill="none" stroke="var(--foreground)" strokeWidth="2.6" />
-        <circle cx="21.5" cy="16" r="3.2" fill="var(--primary)" />
+        <circle cx="13" cy="16" r="6.5" fill="none" stroke="currentColor" strokeWidth="2.8" />
+        <circle cx="21.5" cy="16" r="3.2" fill="currentColor" />
       </svg>
     </span>
   );

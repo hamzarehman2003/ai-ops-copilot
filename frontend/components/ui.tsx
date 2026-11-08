@@ -66,7 +66,8 @@ export function Button({
       size={size === "sm" ? "default" : "lg"}
       className={cn(
         size === "md" && "px-3.5",
-        variant === "primary" && "shadow-[inset_0_1px_0_rgb(255_255_255/0.14)]",
+        variant === "primary" &&
+          "shadow-[inset_0_1px_0_rgb(255_255_255/0.2),0_1px_2px_rgb(var(--shadow-color)/0.2)]",
         variant === "secondary" && "bg-card shadow-card",
         variant === "success" && "bg-success text-white hover:bg-success/90",
         className,
@@ -144,24 +145,25 @@ const STATUS_TONES: Record<string, Tone> = {
   urgent: "red",
 };
 
-/** Small-caps status stamp: READY, PENDING, SUSPENDED. Text plus colour, never colour alone. */
+/** Status pill: a coloured dot plus the word ("Ready", "Suspended"). Text plus colour, never
+ *  colour alone. */
 export function StatusBadge({ status, className }: { status: string; className?: string }) {
   const pulse = status === "processing" || status === "pending";
   return (
     <ShadBadge
       variant="outline"
       className={cn(
-        "h-[22px] gap-1.5 rounded-sm px-2 text-micro tracking-[0.08em] uppercase",
+        "h-[22px] gap-1.5 rounded-full px-2 text-caption font-medium capitalize",
         TONES[STATUS_TONES[status] ?? "gray"],
         className,
       )}
     >
-      {pulse && (
-        <span className="relative flex size-1.5">
+      <span className="relative flex size-1.5">
+        {pulse && (
           <span className="absolute inline-flex size-full animate-ping rounded-full bg-current opacity-50" />
-          <span className="relative inline-flex size-1.5 rounded-full bg-current" />
-        </span>
-      )}
+        )}
+        <span className="relative inline-flex size-1.5 rounded-full bg-current" />
+      </span>
       {status.replace(/_/g, " ")}
     </ShadBadge>
   );
@@ -195,12 +197,12 @@ export function Panel({
     <ShadCard {...props} className={cn("shadow-card ring-0", className)}>
       <CardHeader>
         {eyebrow && <p className="eyebrow">{eyebrow}</p>}
-        <CardTitle className="text-[16px] font-semibold tracking-[-0.01em]">{title}</CardTitle>
+        <CardTitle className="text-[15px] font-semibold tracking-[-0.015em]">{title}</CardTitle>
         {actions && <CardAction className="flex items-center gap-2">{actions}</CardAction>}
       </CardHeader>
       <CardContent className={cn("flex-1", bodyClassName)}>{children}</CardContent>
       {footer && (
-        <CardFooter className="gap-2 border-t bg-muted/40 py-3 text-ui text-muted-foreground">
+        <CardFooter className="gap-2 border-t bg-muted/50 py-3 text-ui text-muted-foreground">
           {footer}
         </CardFooter>
       )}
@@ -225,8 +227,8 @@ export function PageHeader({
   if (compact) {
     return (
       <header className="mb-5 flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
-        <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
-          <h1 className="text-[1.375rem] leading-tight font-semibold tracking-[-0.02em]">{title}</h1>
+        <div className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-3 gap-y-1">
+          <h1 className="text-[1.375rem] leading-tight font-semibold tracking-[-0.025em]">{title}</h1>
           {description && <p className="text-sm text-muted-foreground">{description}</p>}
         </div>
         {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
@@ -234,10 +236,10 @@ export function PageHeader({
     );
   }
   return (
-    <header className="mb-8 flex flex-wrap items-end justify-between gap-x-6 gap-y-4 border-b pb-6">
+    <header className="mb-8 flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
       <div className="max-w-2xl min-w-0">
         {eyebrow && <p className="eyebrow">{eyebrow}</p>}
-        <h1 className="mt-2 text-[1.875rem] leading-tight font-semibold tracking-[-0.025em]">
+        <h1 className="mt-1.5 text-[2rem] leading-tight font-semibold tracking-[-0.035em]">
           {title}
         </h1>
         {description && (
@@ -276,7 +278,7 @@ export function StatTile({
   loading?: boolean;
 }) {
   return (
-    <Card {...props} className={cn("p-5", className)}>
+    <Card {...props} className={cn("p-5 transition-colors hover:border-input", className)}>
       <p className="eyebrow">{label}</p>
       <div className="mt-3 flex items-baseline gap-1.5">
         {loading ? (
@@ -284,7 +286,7 @@ export function StatTile({
         ) : (
           <span
             className={cn(
-              "numeric text-[2rem] leading-none font-medium tracking-[-0.03em]",
+              "text-[2rem] leading-none font-semibold tracking-[-0.04em] tabular-nums",
               VALUE_TONES[tone],
             )}
           >
@@ -498,7 +500,7 @@ export function Segmented<T extends string>({
         <ToggleGroupItem
           key={o.value}
           value={o.value}
-          className="h-8 px-3 text-ui data-[state=on]:bg-primary/10 data-[state=on]:text-primary"
+          className="h-8 px-3 text-ui data-[state=on]:border-primary/35 data-[state=on]:bg-primary/10 data-[state=on]:font-medium data-[state=on]:text-primary"
         >
           {o.label}
         </ToggleGroupItem>

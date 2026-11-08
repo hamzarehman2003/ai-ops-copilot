@@ -12,7 +12,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Separator } from "@/components/ui/separator";
 import {
   Sidebar,
   SidebarContent,
@@ -60,17 +59,19 @@ function usePendingCount(pathname: string) {
   return count;
 }
 
-/** The frame every page lives in: shadcn sidebar on the left, a thin header on top. */
+/** The frame every page lives in: the sidebar sits on the canvas, each page in a raised inset
+ *  panel (rounded, hairline border) with a thin sticky header on top. */
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   return (
     <SidebarProvider>
       <AppSidebar pathname={pathname} />
-      <SidebarInset className="min-w-0 bg-transparent">
+      <SidebarInset className="page-glow min-w-0 md:border md:border-sidebar-border md:shadow-card">
         <Header pathname={pathname} />
-        <main className="mx-auto w-full max-w-[1200px] flex-1 px-4 pt-8 pb-16 duration-300 animate-in fade-in slide-in-from-bottom-1 sm:px-6 lg:px-10 lg:pt-10">
+        {/* SidebarInset is already the <main> landmark. */}
+        <div className="mx-auto w-full max-w-[1200px] flex-1 px-4 pt-8 pb-16 duration-300 animate-in fade-in slide-in-from-bottom-1 sm:px-6 lg:px-10 lg:pt-10">
           {children}
-        </main>
+        </div>
       </SidebarInset>
     </SidebarProvider>
   );
@@ -79,12 +80,12 @@ export function AppShell({ children }: { children: ReactNode }) {
 function AppSidebar({ pathname }: { pathname: string }) {
   const pending = usePendingCount(pathname);
   return (
-    <Sidebar collapsible="icon">
-      <SidebarHeader className="h-16 justify-center px-4 group-data-[collapsible=icon]:px-2">
+    <Sidebar collapsible="icon" variant="inset">
+      <SidebarHeader className="h-14 justify-center px-3 group-data-[collapsible=icon]:px-1">
         <Link href="/" aria-label="Ops Copilot home" className="flex items-center gap-2.5">
           <Logo />
-          <span className="text-[16px] font-semibold tracking-[-0.015em] group-data-[collapsible=icon]:hidden">
-            Ops <span className="text-primary">Copilot</span>
+          <span className="text-[15px] font-semibold tracking-[-0.02em] group-data-[collapsible=icon]:hidden">
+            Ops Copilot
           </span>
         </Link>
       </SidebarHeader>
@@ -92,7 +93,7 @@ function AppSidebar({ pathname }: { pathname: string }) {
       <SidebarContent className="pt-1">
         {NAV.map((group) => (
           <SidebarGroup key={group.group}>
-            <SidebarGroupLabel className="eyebrow h-7 px-2 text-micro">
+            <SidebarGroupLabel className="h-7 px-2 text-caption font-medium text-sidebar-foreground/50">
               {group.group}
             </SidebarGroupLabel>
             <SidebarGroupContent>
@@ -105,15 +106,18 @@ function AppSidebar({ pathname }: { pathname: string }) {
                         asChild
                         isActive={active}
                         tooltip={item.label}
-                        className="relative h-9 text-body text-sidebar-foreground/80 data-[active=true]:font-medium data-[active=true]:text-sidebar-foreground data-[active=true]:before:absolute data-[active=true]:before:inset-y-2 data-[active=true]:before:left-0 data-[active=true]:before:w-0.5 data-[active=true]:before:rounded-full data-[active=true]:before:bg-primary"
+                        className="h-8 rounded-md text-body text-sidebar-foreground/70 hover:text-sidebar-foreground data-[active=true]:bg-background data-[active=true]:font-medium data-[active=true]:text-sidebar-foreground data-[active=true]:shadow-[0_0_0_1px_var(--sidebar-border),0_1px_2px_rgb(var(--shadow-color)/0.06)]"
                       >
                         <Link href={item.href}>
-                          <Icon name={item.icon} className={cn(active && "text-primary")} />
+                          <Icon
+                            name={item.icon}
+                            className={cn("opacity-80", active && "text-primary opacity-100")}
+                          />
                           <span>{item.label}</span>
                         </Link>
                       </SidebarMenuButton>
                       {item.href === "/actions" && pending ? (
-                        <SidebarMenuBadge className="numeric rounded-sm bg-primary px-1.5 text-micro text-primary-foreground">
+                        <SidebarMenuBadge className="numeric rounded-full bg-primary/12 px-1.5 text-micro font-medium text-primary peer-data-[active=true]/menu-button:text-primary">
                           {pending}
                         </SidebarMenuBadge>
                       ) : null}
@@ -126,7 +130,7 @@ function AppSidebar({ pathname }: { pathname: string }) {
         ))}
       </SidebarContent>
 
-      <SidebarFooter className="border-t border-sidebar-border">
+      <SidebarFooter>
         <UserMenu />
         <div className="flex items-center justify-between gap-2 group-data-[collapsible=icon]:flex-col">
           <ApiStatus />
@@ -140,17 +144,17 @@ function AppSidebar({ pathname }: { pathname: string }) {
 
 function Logo() {
   return (
-    <svg viewBox="0 0 32 32" className="size-7 shrink-0" aria-hidden>
-      <rect width="32" height="32" rx="6" fill="var(--primary)" />
-      <circle
-        cx="13"
-        cy="16"
-        r="6.5"
-        fill="none"
-        stroke="var(--primary-foreground)"
-        strokeWidth="2.4"
-      />
-      <circle cx="21.5" cy="16" r="3" fill="var(--primary-foreground)" />
+    <svg viewBox="0 0 32 32" className="size-7 shrink-0 drop-shadow-sm" aria-hidden>
+      <defs>
+        <linearGradient id="logo-fill" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#7c7cf2" />
+          <stop offset="1" stopColor="#4a3fb8" />
+        </linearGradient>
+      </defs>
+      <rect width="32" height="32" rx="8" fill="url(#logo-fill)" />
+      <rect x="0.5" y="0.5" width="31" height="31" rx="7.5" fill="none" stroke="#fff" strokeOpacity="0.18" />
+      <circle cx="13" cy="16" r="6.5" fill="none" stroke="#fff" strokeWidth="2.4" />
+      <circle cx="21.5" cy="16" r="3" fill="#fff" />
     </svg>
   );
 }
@@ -184,7 +188,7 @@ function UserMenu() {
               aria-label="Signed in as"
               className="data-[state=open]:bg-sidebar-accent"
             >
-              <span className="flex size-8 shrink-0 items-center justify-center rounded-md border border-primary/20 bg-primary/10 text-xs font-medium text-primary">
+              <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary/25 to-plum/25 text-xs font-semibold text-primary ring-1 ring-primary/20">
                 {initials(name)}
               </span>
               <span className="grid min-w-0 flex-1 text-left leading-tight">
@@ -266,15 +270,14 @@ function Header({ pathname }: { pathname: string }) {
   const { item, group } = findPage(pathname);
 
   return (
-    <header className="sticky top-0 z-10 flex h-14 shrink-0 items-center gap-3 border-b bg-background/85 px-4 backdrop-blur-sm md:px-6">
-      <SidebarTrigger className="-ml-1.5" />
-      <Separator orientation="vertical" className="h-4!" />
+    <header className="sticky top-0 z-10 flex h-13 shrink-0 items-center gap-3 border-b border-border/70 bg-background/75 px-4 backdrop-blur-md md:rounded-t-xl md:px-5">
+      <SidebarTrigger className="-ml-1.5 text-muted-foreground" />
       {meError ? (
         <ErrorBanner error={meError} />
       ) : (
         <nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-2 text-sm">
           <span className="text-muted-foreground">{group ?? "Ops Copilot"}</span>
-          <span className="text-muted-foreground/50">/</span>
+          <Icon name="chevronRight" className="size-3.5 text-muted-foreground/50" />
           <span className="truncate font-medium">{item?.label}</span>
         </nav>
       )}

@@ -53,7 +53,7 @@ backend/
 frontend/                 Next.js dashboard: Overview (/), Copilot, Sources, Search lab, Approvals,
                           Audit log, Evaluations. shadcn/ui (radix-nova) in components/ui/ (add more
                           with `npx shadcn@4.22.1 add <name>`, then pin any new deps exactly); theme
-                          variables (deep teal, light + dark) in app/globals.css; app-level wrappers
+                          variables (iris accent, inset-canvas layout, light + dark) in app/globals.css; app-level wrappers
                           (PageHeader, Panel, StatTile, StatusBadge...) in components/ui.tsx;
                           Playwright smoke tests in tests/
 evals/                    cases.jsonl (103 cases) + run_eval.py + results/ (source of truth for metrics)

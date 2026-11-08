@@ -8,23 +8,18 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { UserProvider } from "@/components/UserProvider";
 import "./globals.css";
 
-// Sans for the interface, mono for numbers and IDs. The woff2 files are committed (IBM Plex,
-// SIL OFL, from @fontsource 5.3.0) so builds never fetch from Google Fonts: that fetch fails
-// on CI runners and offline.
-const plexSans = localFont({
-  src: [
-    { path: "./fonts/ibm-plex-sans-latin-400-normal.woff2", weight: "400" },
-    { path: "./fonts/ibm-plex-sans-latin-500-normal.woff2", weight: "500" },
-    { path: "./fonts/ibm-plex-sans-latin-600-normal.woff2", weight: "600" },
-  ],
-  variable: "--font-plex-sans",
+// Geist (Vercel, SIL OFL, from the geist 1.7.0 npm package) for the interface, Geist Mono for
+// numbers and IDs. The variable woff2 files are committed so builds never fetch from Google
+// Fonts: that fetch fails on CI runners and offline.
+const geistSans = localFont({
+  src: "./fonts/geist-sans-variable.woff2",
+  weight: "100 900",
+  variable: "--font-geist-sans",
 });
-const plexMono = localFont({
-  src: [
-    { path: "./fonts/ibm-plex-mono-latin-400-normal.woff2", weight: "400" },
-    { path: "./fonts/ibm-plex-mono-latin-500-normal.woff2", weight: "500" },
-  ],
-  variable: "--font-plex-mono",
+const geistMono = localFont({
+  src: "./fonts/geist-mono-variable.woff2",
+  weight: "100 900",
+  variable: "--font-geist-mono",
 });
 
 export const metadata: Metadata = {
@@ -37,7 +32,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <html
       lang="en"
       suppressHydrationWarning // next-themes sets the theme class before React loads
-      className={`${plexSans.variable} ${plexMono.variable}`}
+      className={`${geistSans.variable} ${geistMono.variable}`}
     >
       <body className="min-h-screen text-ui-lg">
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>

@@ -39,7 +39,7 @@ function actorLabel(e: AuditEvent): string {
   return e.actor_name ?? (e.actor_user_id ? shortId(e.actor_user_id) : "System");
 }
 
-const th = "h-10 px-5 text-micro font-medium tracking-[0.1em] text-muted-foreground uppercase";
+const th = "h-10 px-5 text-caption font-medium text-muted-foreground";
 
 export default function AuditPage() {
   const events = useAsync<AuditEvent[]>(() => api.auditEvents(200), []);

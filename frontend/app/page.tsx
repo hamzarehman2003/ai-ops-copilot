@@ -378,7 +378,9 @@ function LinkButton({
       variant={variant === "primary" ? "default" : "outline"}
       className={cn(
         "px-3.5",
-        variant === "primary" ? "shadow-[inset_0_1px_0_rgb(255_255_255/0.14)]" : "bg-card shadow-card",
+        variant === "primary"
+          ? "shadow-[inset_0_1px_0_rgb(255_255_255/0.2),0_1px_2px_rgb(var(--shadow-color)/0.2)]"
+          : "bg-card shadow-card",
       )}
     >
       <Link href={href}>
@@ -415,8 +417,8 @@ function AskBar() {
         go();
       }}
     >
-      <InputGroup className="h-12 bg-card shadow-card">
-        <InputGroupAddon className="pl-4">
+      <InputGroup className="glow-border h-13 rounded-xl">
+        <InputGroupAddon className="pl-4 text-primary">
           <Icon name="chat" />
         </InputGroupAddon>
         <InputGroupInput
@@ -428,7 +430,7 @@ function AskBar() {
           className="text-ui-lg"
         />
         <InputGroupAddon align="inline-end" className="pr-1.5">
-          <ShadButton type="submit" size="lg" className="px-3.5">
+          <ShadButton type="submit" size="lg" className="rounded-lg px-3.5">
             Ask <Icon name="arrowRight" />
           </ShadButton>
         </InputGroupAddon>

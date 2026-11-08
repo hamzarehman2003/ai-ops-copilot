@@ -58,9 +58,12 @@ await shot("search-lab");
 // Overview and the evaluation report.
 await page.goto("/");
 await page.getByText("Retrieval quality by mode").waitFor();
+// Recharts draws the bar value labels only once the bars finish animating.
+await page.locator(".recharts-label-list").first().waitFor();
 await shot("overview");
 await page.goto("/evals");
 await page.getByTestId("eval-report").waitFor();
+await page.locator(".recharts-label-list").first().waitFor();
 await shot("evaluations");
 
 await browser.close();

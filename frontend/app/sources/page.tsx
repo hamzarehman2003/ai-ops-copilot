@@ -44,7 +44,7 @@ import { useAsync } from "@/lib/useAsync";
 import { cn } from "@/lib/utils";
 
 const POLL_MS = 2000;
-const th = "h-9 px-4 text-micro font-medium tracking-[0.1em] text-muted-foreground uppercase";
+const th = "h-9 px-4 text-caption font-medium text-muted-foreground";
 const td = "px-4 py-3";
 
 type Filter = "all" | "ready" | "processing" | "deprecated";

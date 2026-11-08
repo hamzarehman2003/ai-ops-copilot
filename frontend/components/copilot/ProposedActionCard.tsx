@@ -33,7 +33,7 @@ export function ProposedActionCard({ proposal }: { proposal: ProposedActionSumma
           </p>
         </div>
         {!decided && proposal.id != null && (
-          <Badge tone="amber" className="h-[22px] px-2 font-sans text-micro tracking-[0.08em] uppercase">
+          <Badge tone="amber" className="h-[22px] px-2 font-sans text-caption font-medium">
             Needs approval
           </Badge>
         )}

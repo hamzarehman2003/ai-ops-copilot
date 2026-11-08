@@ -17,7 +17,7 @@ const MS_KEY = /(^|_)(ms|latency)|_ms$|latency/i;
 
 /** Small-caps ledger header used by every eval table. */
 export const tableHeadClass =
-  "h-9 text-micro font-medium tracking-[0.1em] text-muted-foreground uppercase";
+  "h-9 text-caption font-medium text-muted-foreground";
 
 export function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);

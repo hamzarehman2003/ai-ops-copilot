@@ -134,27 +134,30 @@ export function ModeChart({
         </ChartContainer>
       </div>
 
-      <table className="sr-only">
-        <caption>Hit@1, hit@3 and MRR for each retrieval mode</caption>
-        <thead>
-          <tr>
-            <th>Mode</th>
-            <th>hit@1</th>
-            <th>hit@3</th>
-            <th>MRR</th>
-          </tr>
-        </thead>
-        <tbody>
-          {entries.map(([mode, m]) => (
-            <tr key={mode}>
-              <td>{mode}</td>
-              <td>{m["hit@1"]}</td>
-              <td>{m["hit@3"]}</td>
-              <td>{m.mrr}</td>
+      {/* sr-only on a wrapper: a table ignores width: 1px and would widen the page on phones. */}
+      <div className="sr-only">
+        <table>
+          <caption>Hit@1, hit@3 and MRR for each retrieval mode</caption>
+          <thead>
+            <tr>
+              <th>Mode</th>
+              <th>hit@1</th>
+              <th>hit@3</th>
+              <th>MRR</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {entries.map(([mode, m]) => (
+              <tr key={mode}>
+                <td>{mode}</td>
+                <td>{m["hit@1"]}</td>
+                <td>{m["hit@3"]}</td>
+                <td>{m.mrr}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
